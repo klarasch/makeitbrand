@@ -9,3 +9,4 @@ __pycache__/
 # minified runtime: a build byproduct; a stale copy in git gets preferred by sheet.py after a clone
 runtime.min.js
 runtime.min.css
+.claude/worktrees/
