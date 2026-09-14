@@ -168,7 +168,9 @@
   function decodeDataUri(url) {
     const m = /^data:[^,]*?(;base64)?,([\s\S]*)$/.exec(url);
     if (!m) return "";
-    try { return m[1] ? atob(m[2]) : decodeURIComponent(m[2]); } catch { return ""; }
+    try {
+      return m[1] ? new TextDecoder().decode(Uint8Array.from(atob(m[2]), c => c.charCodeAt(0))) : decodeURIComponent(m[2]);
+    } catch { return ""; }
   }
   // Runs `apply(src)` in the same tick when `url` is a data: URI (true for every inlined sheet —
   // sheet.py always converts these tokens to data: URIs), so there is no promise/microtask lag
