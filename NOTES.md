@@ -167,3 +167,26 @@ Not changed: Kestrel stays the default brand; Kestrel boards stay flat (no `--ar
 - Nametag template redesigned: logo, ruled event eyebrow, name, role, team chip, footer band.
 - Found: the dev server was gone after the night, so screenshots now come from the inlined sheets
   over file://, which is also what users open.
+
+## Responsive chrome, board picker, git, and the first brand fork (2026-09-14)
+
+- Toolbar holds one row at every width: a container query on the bar collapses labels to icons
+  (≤1080), drops zoom (≤880), the title and secondary icons (≤660), Undo (≤460). The rules sit after
+  the base chrome rules, or the base `display` values win (first attempt failed exactly that way).
+- Tabs replaced by a board picker: ‹ › stepping (←/→), a button showing the current board and n / N,
+  and a popover list (number, title, medium and size, Template/Check badges) with search above 7
+  boards and full keyboard control (G opens it). A batch template shows as its title without
+  `{placeholders}`.
+- Brand typography tokens: `--font-eyebrow`, `--font-caption`, `--weight-display`, `--weight-heading`,
+  `--tracking` (multiplier), `--tracking-eyebrow`; chart and edge labels use the caption face and are
+  measured in it. `--inverse-bg` for a dark ground that isn't the text ink.
+- git initialised (commits c6f5948 → 80259c3). Build output is ignored, including runtime.min.*:
+  a tracked stale copy was preferred by sheet.py after a clone, and take-update no longer carries it.
+  Upstream no longer ships `brand/default`.
+- **Phase 8 fork: a private brand fork, kept outside this repo**, made per SKILL.md §7 (clone, remote renamed
+  `upstream-makeitbrand`, `take-update.sh --first-run`). Its brand was ported from a slaydy fork as one brand
+  with an art-directed `art` ground (second accent, dark-validated chart set) and light boards (brand
+  accent), its own typeface, dark and mono lockups, brand-locked SKILL.fork.md, an example sheet.
+  Its UPSTREAM.md filed two requests; both landed upstream, the fork took the update (dry run clean,
+  exit 0), dropped its workaround, and committed "Take makeitbrand 1eaf9e1". `./build.sh` in the fork
+  composes the fork's dist. The label-measurement commit is the fork's next update.
