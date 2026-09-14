@@ -117,13 +117,18 @@ if [ ! -f SKILL.md ]; then
   exit 2
 fi
 
-# Skill name: argument > SKILL.fork.md `name:` > makeitbrand. It names the
-# dist folder, the zip, and the `name:` frontmatter, all three the same —
-# Claude Code keys the skill on the folder, the frontmatter says what it
-# should be.
+# Skill name: argument > SKILL.fork.md `name:` > make-it-<brand> (from brand/default) > makeitbrand.
+# It names the dist folder, the zip, and the `name:` frontmatter, all three the same — Claude Code
+# keys the skill on the folder, the frontmatter says what it should be. A fork gets its brand in the
+# name for free (brand/default "acme" → /make-it-acme); `name:` in SKILL.fork.md overrides it. Upstream
+# ships no brand/default, so the generic build stays "makeitbrand".
 NAME="${1:-}"
 if [ -z "$NAME" ] && [ -n "$FORK" ]; then
   NAME="$(sed -n 's/^name:[[:space:]]*//p' "$FORK" | head -1)"
+fi
+if [ -z "$NAME" ] && [ -f brand/default ]; then
+  DEFAULT_BRAND="$(head -1 brand/default | tr -d '[:space:]')"
+  [ -n "$DEFAULT_BRAND" ] && NAME="make-it-$DEFAULT_BRAND"
 fi
 NAME="${NAME:-makeitbrand}"
 case "$NAME" in

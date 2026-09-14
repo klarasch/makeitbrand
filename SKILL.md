@@ -184,7 +184,7 @@ Inputs: a website URL, brand guidelines PDF and/or logo. Any one is enough.
 **Where it goes.** A brand lives in a fork repo beside an upstream makeitbrand checkout, so
 `take-update.sh` can update it (`UPDATING.md`). Never write brand files into upstream or into an
 installed skill folder. Already in a fork (`SKILL.fork.md` or `.makeitbrand-upstream` present) →
-write there. In upstream → make the fork beside it (`<brand>-visuals` unless named):
+write there. In upstream → make the fork beside it (`make-it-<brand>` unless the user names it):
 
 ```bash
 git clone <upstream> <parent>/<name>
@@ -208,9 +208,11 @@ with the validator's result, the draft voice and adaptation rules. Say plainly:
 
 **Then write**, following `BRANDING.md`: `brand/<name>.css`, `brand/<name>.md`, `brand/assets/`
 (fonts, logo variants, icons), `brand/icons.css` if they have an iconset, `brand/default`, any
-`media/<id>.md` + `media/<id>.css` they need, and `SKILL.fork.md` — frontmatter `name:`
-(`<brand>-visuals`) and a `description:` that names the brand first and keeps the trigger phrases,
-then two to five lines of standing orders (the brand to use, never ask which).
+`media/<id>.md` + `media/<id>.css` they need, and `SKILL.fork.md` — frontmatter with a
+`description:` that names the brand first and keeps the trigger phrases, then two to five lines of
+standing orders (the brand to use, never ask which). Leave `name:` out: the skill is then called
+`make-it-<brand>` after `brand/default` (`/make-it-acme`). Add `name:` only when the user wants
+another name.
 
 **Build and check.** `./build.sh` → `dist/<name>/`. Make a check sheet from `dist/<name>/` with
 three boards (a social-square, a chat-header, a slide-inset diagram), export it, and look at the

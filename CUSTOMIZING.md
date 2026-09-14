@@ -48,7 +48,6 @@ then markdown — and `./build.sh` composes the shipped `SKILL.md` from it and u
 
 ```markdown
 ---
-name: acme-brand
 description: Produce on-brand visuals for Acme as single-file HTML sheets — social posts, Slack/Confluence graphics, diagrams, dashboards, nametags from a CSV, or any custom size. Use whenever the user wants a branded graphic, a social image, a header, a diagram, a dashboard, or a batch of nametags/badges. Also use to revise an existing Acme sheet.html this skill generated. Not for slide decks (see acme-decks) or .pptx/Google Slides.
 ---
 
@@ -65,11 +64,13 @@ What happens at build:
   first clause, keep the trigger phrases (they are what makes "make me a social post" land
   here), and keep the "Not for slide decks / .pptx" tail so it doesn't compete with a sibling
   slide skill.
-- **`name:` is the build's name** — `./build.sh` uses it for `dist/<name>/`, the zip, and the
+- **The skill's name defaults to `make-it-<brand>`**, from the brand named in `brand/default`
+  (`acme` → `/make-it-acme`), so a fork needs no `name:` at all. Write `name:` only to call it
+  something else. Either way `./build.sh` uses the result for `dist/<name>/`, the zip, and the
   frontmatter, all the same. They have to agree: Claude Code keys a local skill on its folder,
   Claude Desktop's upload reads `name:` out of `SKILL.md` — a zip whose frontmatter still says
   `makeitbrand` installs and matches as makeitbrand there, whatever the folder was called. An
-  argument overrides it (`./build.sh acme-brand-beta`) so a trial build can sit beside the real
+  argument overrides both (`./build.sh make-it-acme-beta`) so a trial build can sit beside the real
   install; nothing else changes.
 - **The body lands right under the title,** before upstream's generic instructions — the first
   thing read after the frontmatter. Two to ten lines: which brand to assume, whether to ask
