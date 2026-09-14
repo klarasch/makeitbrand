@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel autumn release</title>
+<meta name="makeitbrand-brief" content="what=autumn release announcement, architecture inset, Q3 dashboard; media=social-square social-portrait chat-header slide-inset dashboard; tone=plain">
+</head>
+<body>
+<main class="sheet" data-brand="kestrel">
+
+  <section class="board" data-medium="social-square" data-title="Release square" data-ground="art">
+    <p class="eyebrow" data-bind="kicker">Autumn release</p>
+    <div class="stack" data-gap="sm">
+      <h1 class="display" data-bind="headline">Reports that <strong>write themselves</strong></h1>
+      <p class="lead" data-bind="lead">Connect a source once. Kestrel drafts the weekly report.</p>
+    </div>
+    <div class="logo" data-corner="br"></div>
+  </section>
+
+  <section class="board" data-medium="social-portrait" data-title="Release portrait" data-ground="art">
+    <p class="eyebrow" data-bind="kicker">Autumn release</p>
+    <div class="stack" data-gap="md">
+      <h1 class="display" data-bind="headline">Reports that <strong>write themselves</strong></h1>
+      <p class="lead" data-bind="lead">Connect a source once. Kestrel drafts the weekly report.</p>
+      <div class="row">
+        <span class="chip">Postgres</span><span class="chip">BigQuery</span><span class="chip">Sheets</span>
+      </div>
+    </div>
+    <div class="logo" data-corner="br"></div>
+  </section>
+
+  <section class="board" data-medium="chat-header" data-title="Release header">
+    <p class="eyebrow" data-bind="kicker">Autumn release</p>
+    <h1 class="h1" data-bind="headline">Reports that <strong>write themselves</strong></h1>
+  </section>
+
+  <section class="board" data-medium="slide-inset" data-title="Pipeline inset">
+    <div class="diagram" data-cols="5" data-rows="2" data-fill>
+      <div class="group" data-at="3,1" data-span="3,2"><p class="caption">Kestrel cloud</p></div>
+      <div class="node" data-id="src" data-at="1,1"><p class="caption">Postgres</p><p class="h3">Your data</p></div>
+      <div class="node" data-id="sync" data-at="3,1"><p class="caption">hourly</p><p class="h3">Sync</p></div>
+      <div class="node" data-id="draft" data-at="4,1" data-tone="accent"><p class="caption">model</p><p class="h3">Draft writer</p></div>
+      <div class="node" data-id="review" data-at="5,1"><p class="caption">your team</p><p class="h3">Review</p></div>
+      <div class="node" data-id="publish" data-at="5,2" data-tone="outline"><p class="h3">Published</p></div>
+      <div class="note" data-at="3,2" data-span="2,1"><p class="caption">Nothing ships without a human approving it</p></div>
+      <i class="edge" data-from="src" data-to="sync">read-only</i>
+      <i class="edge" data-from="sync" data-to="draft"></i>
+      <i class="edge" data-from="draft" data-to="review"></i>
+      <i class="edge" data-from="review" data-to="publish" data-style="dashed"></i>
+    </div>
+  </section>
+
+  <section class="board" data-medium="dashboard" data-title="Q3 dashboard">
+    <div class="stack" data-gap="xs">
+      <p class="eyebrow">Q3 2026</p>
+      <h1 class="h1">Adoption doubled after the draft writer</h1>
+    </div>
+    <div class="grid" data-cols="4">
+      <article class="tile">
+        <p class="caption">Active teams</p><p class="tile__value">1,240</p>
+        <p class="tile__delta" data-trend="up" data-good="up">+48% vs Q2</p>
+        <i class="tile__spark" data-spark='[640,700,760,840,990,1240]'></i>
+      </article>
+      <article class="tile">
+        <p class="caption">Reports drafted</p><p class="tile__value">18.6k</p>
+        <p class="tile__delta" data-trend="up" data-good="up">+112% vs Q2</p>
+        <i class="tile__spark" data-spark='[4.1,4.9,5.6,6.0,7.2,8.5]'></i>
+      </article>
+      <article class="tile">
+        <p class="caption">Time to publish</p><p class="tile__value">40 min</p>
+        <p class="tile__delta" data-trend="down" data-good="down">3.2 h in Q2</p>
+        <i class="tile__spark" data-spark='[3.2,3.0,2.1,1.4,1.0,0.7]'></i>
+      </article>
+      <article class="tile">
+        <p class="caption">Churned teams</p><p class="tile__value">31</p>
+        <p class="tile__delta" data-trend="flat" data-good="down">29 in Q2</p>
+        <i class="tile__spark" data-spark='[27,33,29,30,28,31]'></i>
+      </article>
+    </div>
+    <div class="grid" data-cols="2" data-fill>
+      <article class="card">
+        <h3 class="h3">Reports drafted per month</h3>
+        <figure class="chart" data-type="bar"
+                data-labels='["Jul","Aug","Sep"]'
+                data-series='[{"name":"Q3 2026","values":[4.1,6.0,8.5]},{"name":"Q3 2025","values":[2.2,2.6,3.1]}]'
+                data-unit="k" data-decimals="1" data-highlight="Q3 2026">
+          <figcaption class="caption">Thousands of reports. Source: product events</figcaption>
+        </figure>
+      </article>
+      <article class="card">
+        <h3 class="h3">Median time to publish</h3>
+        <figure class="chart" data-type="line"
+                data-labels='["W27","W29","W31","W33","W35","W37","W39"]'
+                data-series='[3.2,3.0,2.1,1.4,1.0,0.8,0.7]'
+                data-decimals="1" data-unit=" h">
+          <figcaption class="caption">From sync to published report. Source: product events</figcaption>
+        </figure>
+      </article>
+    </div>
+  </section>
+
+</main>
+<!-- makeitbrand:runtime — generated below this line, never edit by hand -->
+<link rel="stylesheet" href="../../runtime.css">
+<link rel="stylesheet" href="../../brand/kestrel.css">
+<script src="../../runtime.js"></script>
+</body>
+</html>

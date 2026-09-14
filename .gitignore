@@ -1,0 +1,8 @@
+# build output
+dist/
+dist-sheets/
+node_modules/
+__pycache__/
+.DS_Store
+# local dev
+.claude/settings.local.json

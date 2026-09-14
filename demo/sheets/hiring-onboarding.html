@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel hiring and onboarding</title>
+<meta name="makeitbrand-brief" content="what=hiring post, onboarding flow diagram; media=social-square chat-header slide-inset; tone=plain">
+</head>
+<body>
+<main class="sheet" data-brand="kestrel">
+
+  <section class="board" data-medium="social-square" data-title="Hiring square">
+    <p class="eyebrow" data-bind="kicker">Kestrel is hiring</p>
+    <div class="stack" data-gap="sm">
+      <h1 class="display" data-bind="headline">Help teams <strong>stop writing reports</strong></h1>
+      <p class="lead">Backend and product design roles, remote across Europe.</p>
+    </div>
+    <div class="logo" data-corner="br"></div>
+  </section>
+
+  <section class="board" data-medium="chat-header" data-title="Hiring header">
+    <p class="eyebrow" data-bind="kicker">Kestrel is hiring</p>
+    <h1 class="h1" data-bind="headline">Help teams <strong>stop writing reports</strong></h1>
+  </section>
+
+  <section class="board" data-medium="slide-inset" data-title="Onboarding inset">
+    <div class="diagram" data-cols="7" data-rows="5" data-fill>
+      <div class="node" data-id="signup" data-at="1,1" data-shape="pill"><p class="caption">01</p><p class="h3">Create workspace</p></div>
+      <div class="node" data-id="connect" data-at="3,1"><p class="caption">02</p><p class="h3">Connect a source</p></div>
+      <div class="node" data-id="sync" data-at="5,1"><p class="caption">03</p><p class="h3">First sync</p></div>
+      <div class="node" data-id="draft" data-at="7,1" data-tone="accent"><p class="caption">04</p><p class="h3">First draft</p></div>
+      <div class="node" data-id="fix" data-at="5,3" data-tone="outline"><p class="h3">Grant access</p></div>
+      <div class="node" data-id="review" data-at="7,5"><p class="caption">05</p><p class="h3">Team review</p></div>
+      <div class="node" data-id="schedule" data-at="5,5"><p class="caption">06</p><p class="h3">Weekly schedule</p></div>
+      <div class="node" data-id="invite" data-at="3,5" data-shape="pill"><p class="caption">07</p><p class="h3">Invite more teams</p></div>
+      <div class="note" data-at="1,3"><p class="caption">Sources stay read-only throughout</p></div>
+      <i class="edge" data-from="signup" data-to="connect"></i>
+      <i class="edge" data-from="connect" data-to="sync">read-only</i>
+      <i class="edge" data-from="sync" data-to="draft"></i>
+      <i class="edge" data-from="sync" data-to="fix" data-style="dashed">no access</i>
+      <i class="edge" data-from="fix" data-to="connect" data-style="dashed">retry</i>
+      <i class="edge" data-from="draft" data-to="review"></i>
+      <i class="edge" data-from="review" data-to="schedule" data-ports="l-r"></i>
+      <i class="edge" data-from="schedule" data-to="invite" data-ports="l-r"></i>
+    </div>
+  </section>
+
+</main>
+<!-- makeitbrand:runtime — generated below this line, never edit by hand -->
+<link rel="stylesheet" href="../../runtime.css">
+<link rel="stylesheet" href="../../brand/kestrel.css">
+<script src="../../runtime.js"></script>
+</body>
+</html>

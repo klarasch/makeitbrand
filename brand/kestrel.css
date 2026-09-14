@@ -1,0 +1,64 @@
+/* brand: kestrel — demo brand for makeitbrand. Light, plain, one orange accent.
+   Geist and Geist Mono are SIL OFL 1.1 (Vercel). */
+
+@font-face {
+  font-family: "Geist";
+  src: url("assets/fonts/Geist-latin.woff2") format("woff2");
+  font-weight: 100 900;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("assets/fonts/GeistMono-latin.woff2") format("woff2");
+  font-weight: 100 900;
+}
+
+:root {
+  --app-bg: #e8e6df;
+  --bg: #f7f6f2;
+  --fg: #14161a;
+  --muted: rgba(20, 22, 26, 0.6);
+  --faint: rgba(20, 22, 26, 0.14);
+  --surface: #edebe4;
+  --accent: #c8441d;          /* white on it 4.9:1 */
+  --accent-2: #2b50e2;
+  --accent-fg: #ffffff;
+  --wash-opacity: 0;
+
+  --font-display: "Geist", system-ui, sans-serif;
+  --font-body: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --base: 16px;
+  --scale: 1.25;
+
+  --space: 8px;
+  --radius: 10px;
+  --stroke: 1.5px;
+
+  /* validated on #f7f6f2, light: all hard gates pass; contrast WARN on 2–5 → direct labels */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-seq-0: #d6e6f8;
+  --chart-seq-1: #1a4f91;
+  --good: #17703f;            /* 5.1:1 on --surface */
+  --bad: #b83d17;             /* 4.7:1 on --surface */
+
+  --inset-ground: light;
+  --bg-tone: light;
+  --art-ink: bg;
+  /* warm paper with one soft glow of the accent from the top right, and a cool counterweight */
+  --art:
+    radial-gradient(70% 55% at 100% 0%, rgba(200, 68, 29, 0.20) 0%, rgba(200, 68, 29, 0) 70%),
+    radial-gradient(60% 45% at 0% 100%, rgba(43, 80, 226, 0.08) 0%, rgba(43, 80, 226, 0) 70%),
+    linear-gradient(180deg, #f9f8f4 0%, #f1eee6 100%);
+  --band: rgba(20, 22, 26, 0.05);
+
+  --logo-dark: url("assets/logo/kestrel-dark.svg");
+  --logo-light: url("assets/logo/kestrel-light.svg");
+  --logo-mono: url("assets/logo/kestrel-mono.svg");
+  --logo-min: 20px;
+}
+
