@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" fill="none">
-  <path d="M140 100 L44 54" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
-  <path d="M140 100 L236 54" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
-  <path d="M140 100 L44 150" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
-  <path d="M140 100 L236 150" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
-  <path d="M44 54 L44 150" stroke="currentColor" stroke-opacity=".22" stroke-width="calc(var(--stroke) * 2)"/>
-  <path d="M236 54 L236 150" stroke="currentColor" stroke-opacity=".22" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M140 100 L56.6 60" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M140 100 L223.4 60" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M140 100 L56.4 143.5" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M140 100 L223.6 143.5" stroke="currentColor" stroke-opacity=".45" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M44 68 L44 136" stroke="currentColor" stroke-opacity=".22" stroke-width="calc(var(--stroke) * 2)"/>
+  <path d="M236 68 L236 136" stroke="currentColor" stroke-opacity=".22" stroke-width="calc(var(--stroke) * 2)"/>
   <circle cx="44" cy="54" r="12" stroke="currentColor" stroke-width="calc(var(--stroke) * 3)"/>
   <circle cx="236" cy="54" r="12" stroke="currentColor" stroke-width="calc(var(--stroke) * 3)"/>
   <circle cx="44" cy="150" r="12" stroke="currentColor" stroke-width="calc(var(--stroke) * 3)"/>
