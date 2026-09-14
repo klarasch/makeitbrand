@@ -952,7 +952,8 @@
     const scale = parseFloat(cssVar(b, "--scale")) || 1.25;
     const k = parseFloat(cssVar(b, "--k")) || 1;
     const stroke = (parseFloat(cssVar(b, "--stroke")) || 1.5) * k;
-    const mono = cssVar(b, "--font-mono") || "monospace";
+    // chart and label text is set in the caption face, which falls back to mono
+    const mono = cssVar(b, "--font-caption") || cssVar(b, "--font-mono") || "monospace";
     return { body, small: body / scale, k, stroke, mono };
   }
 
