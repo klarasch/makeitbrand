@@ -1,6 +1,6 @@
 ---
 name: makeitbrand
-description: Make on-brand visuals as one editable HTML sheet with PNG export — social posts (square, portrait, landscape), infographics, Slack and Confluence headers, diagrams and charts for slides, KPI dashboards, nametags and other graphics from a CSV, or any custom size. Use whenever the user wants a graphic, visual, social post, banner, header image, infographic, architecture diagram, chart image, dashboard image, badge or nametags "on brand", or wants one message turned into several formats. Also use to revise a sheet this skill made (applying pasted "Copy changes" markup or data-note requests) and to train a brand from a website URL, brand guidelines PDF or logo. Not for slide decks, .pptx, or photo editing.
+description: Make on-brand visuals as one editable HTML sheet with PNG and PDF export — social posts (square, portrait, landscape), multi-page LinkedIn carousels as a PDF document post, infographics, Slack and Confluence headers, diagrams and charts for slides, KPI dashboards, print-ready nametags and other graphics from a CSV, or any custom size. Use whenever the user wants a graphic, visual, social post, carousel or document post, banner, header image, infographic, architecture diagram, chart image, dashboard image, badge or nametags "on brand", a printable PDF of them, or wants one message turned into several formats. Also use to revise a sheet this skill made (applying pasted "Copy changes" markup or data-note requests) and to train a brand from a website URL, brand guidelines PDF or logo. Not for slide decks, .pptx, or photo editing.
 ---
 
 # makeitbrand
@@ -8,14 +8,15 @@ description: Make on-brand visuals as one editable HTML sheet with PNG export �
 <!-- Upstream-owned: every update replaces this file whole (UPDATING.md). An install's own rules go
      in SKILL.fork.md (composed in above this line); a brand's rules in brand/<name>.md. -->
 
-A sheet is one HTML file of fixed-size boards, one board per image. The runtime, the medium
-profiles and the brand stylesheet are fixed assets; you write board markup and nothing else.
+A sheet is one HTML file of fixed-size boards, one board per image or per PDF page. The runtime,
+the medium profiles and the brand stylesheet are fixed assets; you write board markup and nothing
+else.
 
 ```
 runtime.js · runtime.css     sheet view, edit mode, export, charts, diagrams   ← never edit
 brand/<name>.css · .md       tokens, fonts, logo; voice and adaptation rules    ← never edit per sheet
 sheet.py                     inliner + batch rows                               ← run it
-export.py                    headless PNG export                                ← run it
+export.py                    headless PNG and PDF export                        ← run it
 PRIMITIVES.md · MEDIA.md     the markup contract and the media                  ← read them
 ```
 
@@ -47,10 +48,13 @@ Pasted markup that starts with `<section class="board"` is always a revise.
 | **media** | profile ids from `MEDIA.md` (`social-square`, `infographic`, `chat-header`, `slide-inset`, `dashboard`, …) or a custom W×H and where it will be seen |
 | **audience** | who sees it and where (LinkedIn feed, a Confluence page, a slide) |
 | **tone** | a few words; the brand voice file has the rest |
+| **deliver** | images (PNG, the default) or a document (PDF). Follows from the media: a profile's **delivery** line in `MEDIA.md` says when it is a PDF |
 
 Map the request to media yourself: "a LinkedIn post" → `social-square` (or `infographic` when it
-carries research, several numbers or a chart); "for Confluence" → `chat-header`; "a diagram for my
-slides" → `slide-inset`; "a banner 3000×600" → `custom` with the `data-like` of how it is seen.
+carries research, several numbers or a chart); "a carousel", "a document post", "a multi-page
+LinkedIn post", "swipeable" → `carousel`, one board per page, delivered as a PDF; "for Confluence" →
+`chat-header`; "a diagram for my slides" → `slide-inset`; "nametags to print" → `nametag` as a PDF;
+"a banner 3000×600" → `custom` with the `data-like` of how it is seen.
 
 **Gathering it.**
 
@@ -59,10 +63,14 @@ slides" → `slide-inset`; "a banner 3000×600" → `custom` with the `data-like
    the steps of their process, names. If any is missing, ask for it in one message, together with
    any open brief field, each with a default so "go" works. If they say go without it, write a
    clearly placeholder value and flag it with `data-note="placeholder: …"` (PRIMITIVES §10).
-3. Never ask about colours, fonts or layout. The brand and the profiles decide those.
-4. One round of questions, never a second.
+3. Anything printed needs one answer in that same message: office printer (A4 or Letter sheets with
+   cut marks; default A4, Letter for a US user) or a print shop or badge printer (one page per piece
+   at its trim size). Bleed follows from that: a print shop gets it, office sheets get it when the
+   pieces will be cut, a badge printer that prints the exact size doesn't.
+4. Never ask about colours, fonts or layout. The brand and the profiles decide those.
+5. One round of questions, never a second.
 
-Record the settled brief in `<meta name="makeitbrand-brief">`.
+Record the settled brief, `deliver=` included, in `<meta name="makeitbrand-brief">`.
 
 ---
 
@@ -93,6 +101,10 @@ quote, band"), then write it.
 - Follow the profile's constraints and the brand's adaptation rules (`brand/<name>.md`), which win.
 - One message across media: put the shared headline, date and CTA on every board with the same
   `data-bind`, and write the bound text to fit the tightest board.
+- A carousel is a sequence, not a set of posts: settle the page list first (cover, one point per
+  page, the last page's takeaway), write the boards in page order, title them with the page number
+  first (`Carousel 3 pricing`), keep one structure across the middle pages, and follow the profile's
+  constraints in `MEDIA.md`. Budgets count per page.
 - Make it look designed, not filled in. A number that matters becomes a `.stat` or a chart, never a
   sentence. Group dense boards into sections with `.eyebrow[data-rule]`. On brands with an `--art`
   ground, use it for social and infographic boards with `glass` cards. Leave space: a board that
@@ -121,10 +133,23 @@ Look at the PNGs (read the image files). export.py also lists every board the ru
 it looks in the PNG. Fix overflows by cutting words, collisions and imbalance by changing the markup,
 then rebuild and export again until export.py reports clean.
 
-**Hand off in three lines, no more:** what you made (boards and media), the file, and how to use
-it — it opens in a browser; E edits text (⌘B highlights, linked text updates everywhere); PNG per
-board or Download all; "Copy changes" copies the edited markup to paste back here for another round.
-Never mention the work folder, the runtime or internal paths.
+**A PDF delivery** (a carousel, anything printed): always check the PNGs as above first, then make
+the PDF from the clean sheet:
+
+```bash
+python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf                # one page per board
+python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf --paper a4     # office sheets, cut marks
+python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf --bleed        # print shop: 1/8 in bleed
+```
+
+It prints the boards as vector pages at their real size (a nametag is 3.5 × 5 in; 3.75 × 5.25 with
+bleed) and checks the page count. `--bleed` combines with `--paper`. Hand over the PDF with the sheet. The PNGs stay the visual check; don't reread the PDF.
+
+**Hand off in three lines, no more:** what you made (boards and media), the file (and the PDF when
+there is one), and how to use it — it opens in a browser; E edits text (⌘B highlights, linked text
+updates everywhere); Export saves PNGs, or a PDF of each medium's boards; "Copy changes" copies the
+edited markup to paste back here for another round. Never mention the work folder, the runtime or
+internal paths.
 
 ---
 
@@ -172,8 +197,12 @@ Then:
 3. `python3 <skill>/sheet.py work/sheet.html --rows data.csv -o "<Title>.html"` — it materialises one
    board per row and warns about values over budget; shorten the template's type choice or ask the
    user about outliers, never truncate their data silently.
-4. More than 20 rows, or the user wants files: `python3 <skill>/export.py "<Title>.html" -o <folder>/`
-   and hand over the folder of PNGs as well as the sheet.
+4. Check the look on the first few boards only: `python3 <skill>/export.py "<Title>.html" -o work/png/
+   --boards 1-3` (the overflow check still covers every board).
+5. Deliver by where it goes. Printed (nametags, badges, place cards): the PDF from §3, with `--paper`
+   from the brief for office printing. On screen with more than 20 rows, or the user wants files:
+   `python3 <skill>/export.py "<Title>.html" -o <folder>/` and hand over the folder of PNGs. Either
+   way, with the sheet.
 
 ---
 
@@ -251,4 +280,5 @@ Needs a shell and git. Mechanics in `UPDATING.md`; order:
 - Never inline assets yourself or read below the runtime marker.
 - Never regenerate a sheet that carries user edits or notes.
 - Never ask more than one round of questions.
-- On chat surfaces, hand over only the inlined sheet (and PNGs when exported).
+- On chat surfaces, hand over only the inlined sheet (and the PNGs or the PDF when exported).
+- Never mix media in a PDF delivery: a carousel's pages are all `carousel`, a print batch is one medium.

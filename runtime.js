@@ -2,7 +2,8 @@
  *
  * Sheet view (boards at true size, scaled to fit, tabs, zoom), edit mode (plain-text editing,
  * ⌘B highlight, undo, data-bind propagation, data-note chips), overflow marking, export
- * (per-board PNG at 2x through SVG foreignObject), Copy changes and Download HTML.
+ * (per-board PNG at 2x through SVG foreignObject; a PDF per medium built from those rasters),
+ * print layout for headless vector PDF (?mib-print), Copy changes and Download HTML.
  * Diagram edges and charts are drawn by the renderers registered in `RENDER`.
  */
 (() => {
@@ -27,12 +28,14 @@
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const slug = s => (s || "board").toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-") || "board";
   const cssVar = (el, name) => getComputedStyle(el).getPropertyValue(name).trim();
+  // a board's px size from its profile, which resolves even while its frame is hidden (offsetWidth is 0 then)
+  const boardSize = b => [parseFloat(cssVar(b, "--board-w")) || b.offsetWidth, parseFloat(cssVar(b, "--board-h")) || b.offsetHeight];
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
   /* derived attributes: written by the runtime, never by authors (PRIMITIVES.md §13) */
   const STRIP_ATTRS = ["contenteditable", "spellcheck", "data-edited", "data-empty", "data-g", "data-ink", "data-va", "data-off", "data-num", "data-gen", "data-mib-scale", "data-mib-icon"];
   const STYLE_OWNED = ".board, .node, .group, .note, .edge";
-  const PROFILE_VARS = ["--safe-t", "--safe-r", "--safe-b", "--safe-l", "--k", "--floor", "--logo-h", "--ground-default", "--v-default"];
+  const PROFILE_VARS = ["--safe-t", "--safe-r", "--safe-b", "--safe-l", "--k", "--floor", "--logo-h", "--ground-default", "--v-default", "--dpi"];
   const EDITABLE = [
     ".eyebrow", ".display", ".h1", ".h2", ".h3", ".lead", ".body", ".caption", ".chip",
     ".list > li", ".table th", ".table td", ".tile__value", ".tile__delta", ".edge",
@@ -204,6 +207,9 @@
     next: '<path d="M6 3.5L10.5 8 6 12.5"/>',
     chevron: '<path d="M4.5 6.5L8 10l3.5-3.5"/>',
     check: '<path d="M3.5 8.5l3 3 6-7"/>',
+    image: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><circle cx="6" cy="6.5" r="1.1"/><path d="M13.5 10.5l-3-3L4 13"/>',
+    pages: '<path d="M6 2.5h4.5l3 3v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/><path d="M10.5 2.5v3h3"/><path d="M2.5 5.5v8a1 1 0 0 0 1 1H9"/>',
+    crop: '<path d="M4.5 1.5v10h10"/><path d="M1.5 4.5h10v10"/>',
   };
   const icon = name => `<svg class="mib-i" viewBox="0 0 16 16" aria-hidden="true">${ICON[name]}</svg>`;
 
@@ -220,7 +226,7 @@
   const tipEl = h("div", { class: "mib-tip", "data-ui": "", role: "tooltip", hidden: "" });
   document.addEventListener("mouseover", e => {
     const t = e.target.closest?.("[data-tip]");
-    if (!t) { tipEl.hidden = true; return; }
+    if (!t || pop) { tipEl.hidden = true; return; }
     tipEl.innerHTML = esc(t.dataset.tip) + (t.dataset.kbd ? `<kbd>${esc(t.dataset.kbd)}</kbd>` : "");
     tipEl.hidden = false;
     const r = t.getBoundingClientRect(), w = tipEl.offsetWidth;
@@ -340,12 +346,15 @@
 
   /* ---------- board picker: a searchable list, for sheets with many boards */
   let pop = null;
-  function closePicker() { pop?.remove(); pop = null; $(".mib-pick", bar)?.setAttribute("aria-expanded", "false"); }
+  function closePicker() {
+    pop?.remove(); pop = null;
+    $$(".mib-pick, .mib-cbtn--export", bar).forEach(x => x.setAttribute("aria-expanded", "false"));
+  }
   function openPicker() {
-    if (pop) return closePicker();
+    if (pop) { const kind = pop.dataset.kind; closePicker(); if (kind === "boards") return; }
     const btn = $(".mib-pick", bar);
     btn.setAttribute("aria-expanded", "true");
-    pop = h("div", { class: "mib-pop", "data-ui": "", role: "dialog", "aria-label": "Boards" });
+    pop = h("div", { class: "mib-pop", "data-ui": "", "data-kind": "boards", role: "dialog", "aria-label": "Boards" });
     const search = boards.length > 7 ? h("input", { class: "mib-pop__search", type: "search", placeholder: `Find among ${boards.length} boards`, "aria-label": "Find a board" }) : null;
     const list = h("div", { class: "mib-pop__list", role: "listbox" });
     const items = [];
@@ -390,7 +399,50 @@
     mark();
     (search || items[cursor] || items[0]).focus();
   }
-  document.addEventListener("mousedown", e => { if (pop && !pop.contains(e.target) && !e.target.closest(".mib-pick")) closePicker(); });
+  document.addEventListener("mousedown", e => { if (pop && !pop.contains(e.target) && !e.target.closest(".mib-pick, .mib-cbtn--export")) closePicker(); });
+
+  /* ---------- export menu: PNG images, or one PDF per medium (a PDF's pages share a size) */
+  function openExport() {
+    if (pop) { const kind = pop.dataset.kind; closePicker(); if (kind === "export") return; }
+    const list = boards.filter(b => !b.hasAttribute("data-template"));
+    if (!list.length) return toast("Nothing to export");
+    const btn = $(".mib-cbtn--export", bar);
+    btn.setAttribute("aria-expanded", "true");
+    tipEl.hidden = true;
+    pop = h("div", { class: "mib-pop mib-pop--menu", "data-ui": "", "data-kind": "export", role: "menu", "aria-label": "Export" });
+    const menu = h("div", { class: "mib-pop__list" });
+    const items = [];
+    const item = (name, label, meta, run) => {
+      const it = h("button", { type: "button", class: "mib-pop__item", role: "menuitem" },
+        `<span class="mib-pop__n">${icon(name)}</span><span class="mib-pop__t">${esc(label)}</span><span class="mib-pop__m">${meta}</span>`);
+      it.addEventListener("click", () => { closePicker(); run(); });
+      items.push(it);
+      menu.appendChild(it);
+    };
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    item("image", "PNG images", `${plural(list.length, "file", "files")}<i></i>one per board`, downloadAll);
+    for (const g of pdfGroups()) {
+      const meta = size => [esc(g.label), plural(g.list.length, "page", "pages"), size].filter(Boolean).join("<i></i>");
+      if (g.print) {
+        item("pages", "PDF, trim size", meta(g.size), () => exportPDF(g));
+        item("crop", "PDF with bleed", meta(g.bleedSize), () => exportPDF(g, true));
+      } else {
+        item("pages", "PDF document", meta(g.size), () => exportPDF(g));
+      }
+    }
+    pop.appendChild(menu);
+    let cursor = 0;
+    const mark = () => items.forEach((x, k) => x.classList.toggle("is-cursor", k === cursor));
+    pop.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); cursor = (cursor + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length; mark(); items[cursor].focus(); }
+      else if (e.key === "Escape") { e.preventDefault(); closePicker(); btn.focus(); }
+    });
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.top = r.bottom + 6 + "px";
+    pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + "px";
+    items[0].focus();
+  }
   function applyTab() {
     boards.forEach((b, i) => { frameOf(b).hidden = !(activeTab === "all" || +activeTab === i); });
   }
@@ -411,11 +463,15 @@
     }
     const n = $$(":scope > .board, :scope > .mib-frame > .mib-stage > .board", sheet).length;
     const nav = h("div", { class: "mib-nav" });
-    nav.append(
+    const arrows = h("div", { class: "mib-nav__arrows" });
+    arrows.append(
       cbtn({ id: "mib-prev", name: "prev", tip: "Previous board", kbd: "←", onclick: () => stepBoard(-1) }),
+      cbtn({ id: "mib-next", name: "next", tip: "Next board", kbd: "→", onclick: () => stepBoard(1) }),
+    );
+    nav.append(
       h("button", { type: "button", class: "mib-pick", "aria-haspopup": "dialog", "aria-expanded": "false", "data-tip": "Jump to a board", onclick: openPicker },
         `<span class="mib-pick__label">All boards</span><span class="mib-pick__pos"></span>${icon("chevron")}`),
-      cbtn({ id: "mib-next", name: "next", tip: "Next board", kbd: "→", onclick: () => stepBoard(1) }),
+      arrows,
     );
     bar.append(
       h("div", { class: "mib-bar__id" }, `<span class="mib-bar__title">${esc(title)}</span><span class="mib-bar__count">${n} ${n === 1 ? "board" : "boards"}</span>`),
@@ -431,9 +487,14 @@
       h("span", { class: "mib-sep" }),
       cbtn({ name: "copy", label: "Copy changes", tip: "Copy the boards as markup to paste back into the chat", cls: "mib-cbtn--copy", onclick: copyChanges }),
       cbtn({ name: "file", tip: "Save this sheet with your edits", cls: "mib-cbtn--save", onclick: downloadHTML }),
-      cbtn({ name: "download", label: "Export all", tip: "Download every board as PNG", cls: "is-primary mib-cbtn--export", onclick: downloadAll }),
+      cbtn({ name: "download", label: "Export", tip: "Download the boards as PNG or PDF", cls: "is-primary mib-cbtn--export", onclick: openExport }),
     );
+    const exp = $(".mib-cbtn--export", bar);
+    exp.setAttribute("aria-haspopup", "menu");
+    exp.setAttribute("aria-expanded", "false");
+    exp.insertAdjacentHTML("beforeend", icon("chevron"));
     $("#mib-undo", bar).disabled = true;
+    $("#mib-note", bar).hidden = !editing;
     document.body.append(bar, toastEl, tipEl);
     chromeTone();
     new ResizeObserver(() => { sheet.style.paddingTop = bar.offsetHeight + 36 + "px"; }).observe(bar);
@@ -491,6 +552,8 @@
     sheet.classList.toggle("is-editing", editing);
     const eb = $("#mib-edit");
     if (eb) { eb.classList.toggle("is-on", editing); eb.innerHTML = icon(editing ? "done" : "edit") + `<span>${editing ? "Done" : "Edit"}</span>`; eb.dataset.tip = editing ? "Stop editing" : "Edit text"; }
+    const nb = $("#mib-note");
+    if (nb) nb.hidden = !editing;
     if (!editing) document.activeElement?.blur();
     setEditable(editing);
     renderNotes();
@@ -870,10 +933,12 @@
     return cssPromise;
   }
 
-  async function boardSVG(b) {
-    const w = b.offsetWidth, hh = b.offsetHeight;
+  async function boardSVG(b, bleedPx = 0) {
+    const [bw, bh] = boardSize(b);
+    const w = bw + 2 * bleedPx, hh = bh + 2 * bleedPx;
     const css = await exportCSS();
     const clone = b.cloneNode(true);
+    if (bleedPx) growForBleed(clone, b, bleedPx);
     $$("[data-ui], .mib-note", clone).forEach(n => n.remove());
     for (const n of [clone, ...$$("[contenteditable]", clone)]) { n.removeAttribute("contenteditable"); n.removeAttribute("spellcheck"); }
     clone.removeAttribute("data-overflow");
@@ -898,9 +963,10 @@
     return { svg: new XMLSerializer().serializeToString(svg), w, h: hh };
   }
 
-  async function boardPNG(b, scale = 2) {
+  // ground: a colour painted under the board first (PDF pages are JPEG, which has no alpha)
+  async function boardCanvas(b, scale = 2, ground = null, bleedPx = 0) {
     await document.fonts.ready;
-    const { svg, w, h: hh } = await boardSVG(b);
+    const { svg, w, h: hh } = await boardSVG(b, bleedPx);
     const img = new Image();
     img.decoding = "sync";
     const loaded = new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("the board could not be drawn")); });
@@ -910,9 +976,14 @@
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(w * scale); canvas.height = Math.round(hh * scale);
     const ctx = canvas.getContext("2d");
+    if (ground) { ctx.fillStyle = ground; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0);
-    return canvas.toDataURL("image/png");
+    return canvas;
+  }
+
+  async function boardPNG(b, scale = 2) {
+    return (await boardCanvas(b, scale)).toDataURL("image/png");
   }
 
   async function exportBoard(b) {
@@ -934,6 +1005,198 @@
       await new Promise(r => setTimeout(r, 350));
     }
     toast(`Downloaded ${list.length} PNGs.`);
+  }
+
+  /* ---------- PDF. A profile's --dpi (default 96) says what one board px is on paper: a 1080px
+     carousel page is 810pt wide, a 1050px nametag at 300 dpi is 3.5in. In the browser the pages are
+     the export rasters (2x, or 1x for print profiles already drawn at print resolution); export.py
+     --pdf prints the live boards through Chrome instead, for vector text and imposition. */
+  const dpiOf = b => parseFloat(cssVar(b, "--dpi")) || 96;
+  const pt = v => +v.toFixed(2);
+  const BLEED_IN = 0.125;          // 1/8 in, which also covers the 3 mm most print shops ask for
+
+  function physicalSize(b, extraIn = 0) {
+    const dpi = dpiOf(b);
+    if (dpi < 150) return "";
+    const inch = v => +(v / dpi + extraIn).toFixed(3);
+    const [w, hh] = boardSize(b);
+    return `${inch(w)} × ${inch(hh)} in`;
+  }
+
+  /* Bleed: the board grows by px on every side and its safe area grows with it, so the ground,
+     art and full-width bands run past the trim while everything else keeps its place relative to
+     the trim. Read from `src` (the live board), written to `el` (the board itself, or an export clone). */
+  function growForBleed(el, src, px) {
+    const [w, hh] = boardSize(src);
+    const vals = { "--board-w": w + 2 * px, "--board-h": hh + 2 * px, "--mib-bleed": px };
+    for (const s of ["--safe-t", "--safe-r", "--safe-b", "--safe-l"]) vals[s] = (parseFloat(cssVar(src, s)) || 0) + px;
+    for (const [k, v] of Object.entries(vals)) el.style.setProperty(k, v + "px");
+  }
+
+  function pdfGroups() {
+    const groups = new Map();
+    for (const b of boards) {
+      if (b.hasAttribute("data-template")) continue;
+      const custom = b.dataset.medium === "custom", [w, hh] = boardSize(b);
+      const key = custom ? `custom ${w}×${hh}` : b.dataset.medium || "board";
+      if (!groups.has(key)) groups.set(key, {
+        key, label: custom ? `${w} × ${hh}` : key, list: [],
+        print: dpiOf(b) >= 150, size: physicalSize(b), bleedSize: physicalSize(b, 2 * BLEED_IN),
+      });
+      groups.get(key).list.push(b);
+    }
+    return [...groups.values()];
+  }
+
+  // A minimal PDF 1.4 writer: one full-page JPEG image per page.
+  function pdfFile(pages, title) {
+    const enc = new TextEncoder();
+    const parts = [], offsets = [];
+    let len = 0;
+    const put = x => { const u = typeof x === "string" ? enc.encode(x) : x; parts.push(u); len += u.length; };
+    const obj = (n, dict, stream) => {
+      offsets[n] = len;
+      put(`${n} 0 obj\n${dict}\n`);
+      if (stream) { put("stream\n"); put(stream); put("\nendstream\n"); }
+      put("endobj\n");
+    };
+    const text = s => "<FEFF" + [...String(s)].map(c => {
+      const code = c.codePointAt(0);
+      const units = code > 0xffff ? [0xd800 + ((code - 0x10000) >> 10), 0xdc00 + ((code - 0x10000) & 0x3ff)] : [code];
+      return units.map(u => u.toString(16).padStart(4, "0")).join("");
+    }).join("") + ">";
+    put("%PDF-1.4\n%âãÏÓ\n");
+    obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${4 + i * 3} 0 R`).join(" ")}] /Count ${pages.length} >>`);
+    obj(3, `<< /Title ${text(title)} /Producer (makeitbrand) >>`);
+    pages.forEach((p, i) => {
+      const n = 4 + i * 3, draw = enc.encode(`q ${pt(p.pw)} 0 0 ${pt(p.ph)} 0 0 cm /Im Do Q`);
+      const boxes = p.bleed ? ` /BleedBox [0 0 ${pt(p.pw)} ${pt(p.ph)}] /TrimBox [${pt(p.bleed)} ${pt(p.bleed)} ${pt(p.pw - p.bleed)} ${pt(p.ph - p.bleed)}]` : "";
+      obj(n, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pt(p.pw)} ${pt(p.ph)}]${boxes} /Resources << /XObject << /Im ${n + 2} 0 R >> >> /Contents ${n + 1} 0 R >>`);
+      obj(n + 1, `<< /Length ${draw.length} >>`, draw);
+      obj(n + 2, `<< /Type /XObject /Subtype /Image /Width ${p.iw} /Height ${p.ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>`, p.jpeg);
+    });
+    const xref = len, size = 4 + pages.length * 3;
+    put(`xref\n0 ${size}\n0000000000 65535 f \n` + offsets.slice(1).map(o => `${String(o).padStart(10, "0")} 00000 n \n`).join(""));
+    put(`trailer\n<< /Size ${size} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, { type: "application/pdf" });
+  }
+
+  async function exportPDF(group, bleed = false) {
+    commitText();
+    const { list } = group;
+    toast(`Making a ${list.length}-page PDF…`, 120000);
+    try {
+      const pages = [];
+      for (const b of list) {
+        const dpi = dpiOf(b), bpx = bleed ? BLEED_IN * dpi : 0;
+        const canvas = await boardCanvas(b, dpi >= 200 ? 1 : 2, "#fff", bpx);
+        const blob = await new Promise((res, rej) => canvas.toBlob(x => x ? res(x) : rej(new Error("the page could not be encoded")), "image/jpeg", 0.92));
+        pages.push({
+          jpeg: new Uint8Array(await blob.arrayBuffer()), iw: canvas.width, ih: canvas.height,
+          pw: (boardSize(b)[0] + 2 * bpx) * 72 / dpi, ph: (boardSize(b)[1] + 2 * bpx) * 72 / dpi, bleed: bleed ? BLEED_IN * 72 : 0,
+        });
+      }
+      const several = pdfGroups().length > 1;
+      const url = URL.createObjectURL(pdfFile(pages, document.title || "Sheet"));
+      triggerDownload(url, slug(document.title) + (several ? "-" + slug(group.key) : "") + (bleed ? "-bleed" : "") + ".pdf");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast(`Downloaded a ${list.length}-page PDF.`);
+    } catch (e) {
+      console.error(e);
+      toast("PDF export failed: " + e.message);
+    }
+  }
+
+  /* ---------- print layout (?mib-print): the boards laid out as pages for Chrome's print-to-PDF.
+     ?mib-print or ?mib-print=1 → one page per board at its physical size (a named @page per size);
+     ?mib-print=a4|letter → boards imposed on that paper in a centred grid with cut marks, a new
+     sheet whenever the board size changes; a board bigger than the paper keeps a page of its own.
+     ?mib-boards=0,3,4 (0-based sheet indices) picks boards; default every non-template board.
+     export.py mirrors the page count arithmetic here; change both together. */
+  const PAPER = { a4: [595.28, 841.89], letter: [612, 792] };
+  const PAPER_MARGIN = 24, PAPER_GUTTER = 18, MARK_OFFSET = 3, MARK_LEN = 9;
+  const BLEED_MARGIN = 18;         // with bleed, bleed boxes touch and the cut marks sit in the margin
+
+  // ?mib-bleed=1: every board grows by BLEED_IN (growForBleed); w/h stay the trim size in pt
+  function printLayout(paper, pick, bleed) {
+    const want = pick ? new Set(pick.split(",").map(Number)) : null;
+    const items = boards
+      .filter((b, i) => want ? want.has(i) : !b.hasAttribute("data-template"))
+      .map(b => { const dpi = dpiOf(b), [w, hh] = boardSize(b); return { b, dpi, w: w * 72 / dpi, h: hh * 72 / dpi, s: 96 / dpi }; });
+    const B = bleed ? BLEED_IN * 72 : 0;
+    if (bleed) items.forEach(it => growForBleed(it.b, it.b, BLEED_IN * it.dpi));
+    const pagesEl = h("div", { class: "mib-pages", "data-ui": "" });
+    const named = new Map();
+    const page = (w, hh) => {
+      const key = `${pt(w)}pt ${pt(hh)}pt`;
+      if (!named.has(key)) named.set(key, `mib-p${named.size}`);
+      const p = h("div", { class: "mib-page" });
+      p.style.cssText = `page:${named.get(key)};width:${pt(w)}pt;height:${pt(hh)}pt`;
+      pagesEl.appendChild(p);
+      return p;
+    };
+    const place = (p, it, x, y) => {
+      const slot = h("div", { class: "mib-slot" });
+      slot.style.cssText = `left:${pt(x)}pt;top:${pt(y)}pt;width:${pt(it.w + 2 * B)}pt;height:${pt(it.h + 2 * B)}pt`;
+      // zoom, not transform: print fragments by layout box, so a transformed 1500px board would be
+      // cut at the page edge in its unscaled coordinates (and spill a blank page after the last one)
+      it.b.style.transform = "none";
+      it.b.style.zoom = it.s;
+      slot.appendChild(it.b);
+      p.appendChild(slot);
+    };
+    const line = (p, x, y, w, hh) => {
+      const m = h("i", { class: "mib-mark" });
+      m.style.cssText = `left:${pt(x)}pt;top:${pt(y)}pt;width:${pt(w)}pt;height:${pt(hh)}pt`;
+      p.appendChild(m);
+    };
+    const marks = (p, x, y, w, hh) => {
+      const t = 0.5, o = MARK_OFFSET, l = MARK_LEN;
+      for (const yy of [y, y + hh]) { line(p, x - o - l, yy - t / 2, l, t); line(p, x + w + o, yy - t / 2, l, t); }
+      for (const xx of [x, x + w]) { line(p, xx - t / 2, y - o - l, t, l); line(p, xx - t / 2, y + hh + o, t, l); }
+    };
+    // with bleed: one mark per cut line, outside the whole grid, clear of every board's bleed
+    const outerMarks = (p, x0, y0, cols, rows, bw, bh) => {
+      const t = 0.5, o = 2, l = MARK_LEN, right = x0 + cols * bw, bottom = y0 + rows * bh;
+      const before = edge => [Math.max(0, edge - o - l), Math.min(l, edge - o)];
+      for (let c = 0; c < cols; c++) for (const xx of [x0 + c * bw + B, x0 + (c + 1) * bw - B]) {
+        const [y, len] = before(y0);
+        if (len > 0) line(p, xx - t / 2, y, t, len);
+        line(p, xx - t / 2, bottom + o, t, l);
+      }
+      for (let r = 0; r < rows; r++) for (const yy of [y0 + r * bh + B, y0 + (r + 1) * bh - B]) {
+        const [x, len] = before(x0);
+        if (len > 0) line(p, x, yy - t / 2, len, t);
+        line(p, right + o, yy - t / 2, l, t);
+      }
+    };
+    const sheetSize = PAPER[paper];
+    const margin = B ? BLEED_MARGIN : PAPER_MARGIN, gutter = B ? 0 : PAPER_GUTTER;
+    for (let i = 0; i < items.length;) {
+      const { w, h: hh } = items[i];
+      const bw = w + 2 * B, bh = hh + 2 * B;          // the box a board takes: trim plus bleed
+      const cols = sheetSize ? Math.floor((sheetSize[0] - 2 * margin + gutter) / (bw + gutter)) : 0;
+      const rows = sheetSize ? Math.floor((sheetSize[1] - 2 * margin + gutter) / (bh + gutter)) : 0;
+      if (cols < 1 || rows < 1) { place(page(bw, bh), items[i++], 0, 0); continue; }
+      const p = page(...sheetSize);
+      const x0 = (sheetSize[0] - (cols * bw + (cols - 1) * gutter)) / 2;
+      const y0 = (sheetSize[1] - (rows * bh + (rows - 1) * gutter)) / 2;
+      let n = 0;
+      for (; n < cols * rows && i < items.length && items[i].w === w && items[i].h === hh; n++, i++) {
+        const x = x0 + (n % cols) * (bw + gutter), y = y0 + Math.floor(n / cols) * (bh + gutter);
+        place(p, items[i], x, y);
+        if (!B) marks(p, x, y, w, hh);
+      }
+      if (B) outerMarks(p, x0, y0, Math.min(n, cols), Math.ceil(n / cols), bw, bh);
+    }
+    const rules = h("style", { "data-ui": "" });
+    rules.textContent = [...named].map(([size, name]) => `@page ${name}{size:${size};margin:0}`).join("\n");
+    document.head.appendChild(rules);
+    // boards were measured inside their frames; the frames are empty now or hold unpicked boards
+    $$(":scope > .mib-frame", sheet).forEach(f => f.remove());
+    sheet.appendChild(pagesEl);
+    return pagesEl.children.length;
   }
 
   /* ============================================================ drawing helpers */
@@ -1485,8 +1748,17 @@
 
   /* ?mib-board=N (0-based): render only that board, at true size, at the page origin, with no chrome
      and a transparent page. For headless export (export.py); <html data-mib-ready> marks it done. */
-  const only = new URLSearchParams(location.search).get("mib-board");
-  if (only !== null) {
+  const params = new URLSearchParams(location.search);
+  const only = params.get("mib-board"), print = params.get("mib-print");
+  if (print !== null) {
+    document.documentElement.classList.add("mib-solo", "mib-print");
+    mountBoards();
+    document.fonts.ready.then(() => {
+      mountBoards();
+      const n = printLayout(print.toLowerCase(), params.get("mib-boards"), params.get("mib-bleed") === "1");
+      requestAnimationFrame(() => document.documentElement.setAttribute("data-mib-ready", n ? `pages:${n}` : "missing"));
+    });
+  } else if (only !== null) {
     document.documentElement.classList.add("mib-solo");
     activeTab = String(+only);
     const settle = () => {
@@ -1511,6 +1783,6 @@
 
   window.makeitbrand = {
     render: RENDER, boards: () => boards, refresh: mountBoards,
-    boardPNG, boardSVG, markup: boardsMarkup, html: sheetHTML, exportBoard,
+    boardPNG, boardSVG, markup: boardsMarkup, html: sheetHTML, exportBoard, exportPDF, pdfGroups,
   };
 })();

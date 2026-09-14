@@ -190,3 +190,48 @@ Not changed: Kestrel stays the default brand; Kestrel boards stay flat (no `--ar
   Its UPSTREAM.md filed two requests; both landed upstream, the fork took the update (dry run clean,
   exit 0), dropped its workaround, and committed "Take makeitbrand 1eaf9e1". `./build.sh` in the fork
   composes the fork's dist. The label-measurement commit is the fork's next update.
+
+## PDF export: carousels and print (2026-09-14)
+
+Two kinds of PDF, two paths:
+
+- **In the sheet.** "Export all" became an Export menu: PNG images, or one PDF per medium (a
+  document's pages share a size). Pages are the export rasters as JPEG (2x; 1x for print profiles
+  already drawn at 300 dpi), written by a small PDF 1.4 writer in runtime.js and downloaded as a blob.
+  Checked in the in-app browser: 5 pages at 810 × 1012.5 pt, every xref offset verified, about 1 MB.
+  **Not yet checked by hand:** the blob download in Claude Chat's preview (the PNGs use data: URLs).
+- **export.py --pdf** prints vector PDFs: `?mib-print` lays the boards out as pages, Chrome's
+  --print-to-pdf prints them. Fonts are embedded (Chrome writes Geist as Type 3) and text stays text.
+  Demo carousel: 5 pages, 166 KB. 12 nametags: 12 pages at 3.5 × 5 in, or `--paper a4|letter` with 4
+  tags a sheet and cut marks (3 sheets). The page count is checked against a Python copy of the
+  runtime's layout arithmetic.
+- Page size comes from a new profile property, `--dpi` (default 96; nametag 300). New `carousel`
+  profile (1080 × 1350, safe areas for LinkedIn's document viewer, sequence rules, budget row),
+  `demo/sheets/carousel.html`. SKILL.md: `deliver` in the brief, the print question, PDF steps in make
+  and batch.
+
+Found on the way:
+
+1. Chrome ignores `page:` names and forced breaks on flex items: print mode sets `.sheet` to block.
+2. Hiding the frames before laying out made every board measure 0 × 0 (0-size pages, a Letter
+   fallback, blank). Measure first, then remove the empty frames.
+3. A board scaled with `transform` is still paginated by its unscaled layout box: a 1500 px tag at
+   0.32× was cut at the page edge in its own coordinates and spilled a blank 13th page. `zoom`
+   shrinks the layout box and fixes both.
+4. sheet.py copies the runtime into the sheet at build time, so a sheet built before a runtime
+   change tests the old runtime. Rebuild before judging.
+
+**Bleed (added the same day).** Print profiles (`--dpi` ≥ 150) get two PDF options: trim size, or
+with 1/8 in bleed. The board grows by the bleed on every side and its `--safe-*` grow with it (the
+band adds it to its bottom padding), so the ground, art and band run past the trim and nothing else
+moves. In the sheet it applies to the export clone and the PDF carries TrimBox/BleedBox; in
+`export.py --bleed` to the live boards before printing. On paper the bleed boxes touch (margin 18 pt)
+and cut marks go outside the grid only. Nametags: 12 pages at 3.75 × 5.25 in; A4 and Letter 3
+sheets each.
+
+Chrome (the agent's pass, finished by hand after a spend limit stopped it): Note appears only in edit
+mode; the board picker has a fixed width per breakpoint, with ‹ › as a joined pair to its right.
+
+Open: the brand fork's
+`SKILL.fork.md` description still says "with PNG export"; it should gain the carousel and PDF
+triggers when it takes this update.

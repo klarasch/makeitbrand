@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
-"""makeitbrand export.py — headless batch PNG export of a sheet's boards. Stdlib only.
+"""makeitbrand export.py — headless batch PNG or PDF export of a sheet's boards. Stdlib only.
 
     python3 export.py sheet.html -o outdir/
     python3 export.py sheet.html -o outdir/ --boards 1,3-5 --scale 2
+    python3 export.py sheet.html -o outdir/ --pdf                 # one page per board
+    python3 export.py sheet.html -o outdir/ --pdf --paper a4      # imposed on A4 with cut marks
+
+## PDF
+
+--pdf writes one vector PDF, `<slug of <title>>.pdf` (`-a4`/`-letter` appended with --paper), by
+opening the sheet at `?mib-print` (runtime.js's print layout) and printing it with Chrome's
+--print-to-pdf. Text stays text and fonts are embedded. Each board's page size is its px × 72 /
+the profile's `--dpi` (default 96), so a nametag at 300 dpi is a 3.5 × 5 in page. --paper a4|letter
+imposes boards on that paper instead, in a centred grid with cut marks; a board bigger than the
+paper keeps its own page. --bleed grows every board by 1/8 in on each side (the board's ground and
+full-width bands run into it, the content stays where it was relative to the trim): a trim-size
+page becomes the bleed size, and on paper the bleed boxes touch with the cut marks in the margin. The page count is checked against the same arithmetic the runtime uses
+(expected_pages), which also catches a print that fired before the layout was ready.
 
 For each board (skipping any `data-template` board), this opens the sheet in headless Chrome at
 `?mib-board=<0-based index>` (runtime.js's solo-render mode: one board at true size, no chrome,
@@ -44,6 +58,7 @@ polls for the file to appear and then kills the process, same trick as tools/sho
 """
 import argparse
 import html
+import math
 import os
 import re
 import shutil
@@ -124,6 +139,7 @@ def parse_boards(doc):
         boards.append({
             "template": bool(re.search(r"\bdata-template\b", tag)),
             "medium": attr("data-medium"),
+            "like": attr("data-like"),
             "title": attr("data-title"),
             "w": attr("data-w"),
             "h": attr("data-h"),
@@ -140,6 +156,110 @@ def parse_medium_sizes(css_text):
         if w and h:
             sizes[medium] = (int(w.group(1)), int(h.group(1)))
     return sizes
+
+
+def parse_medium_dpis(css_text):
+    dpis = {}
+    for m in RULE_RE.finditer(css_text):
+        d = re.search(r"--dpi:\s*([\d.]+)", m.group(3))
+        if d:
+            dpis[m.group(1) or m.group(2)] = float(d.group(1))
+    return dpis
+
+
+def board_dpi(board, dpis):
+    medium = board["like"] if board["medium"] == "custom" else board["medium"]
+    return dpis.get(medium, 96.0)
+
+
+# Mirrors runtime.js printLayout(); change both together.
+PAPER = {"a4": (595.28, 841.89), "letter": (612.0, 792.0)}
+PAPER_MARGIN, PAPER_GUTTER = 24, 18
+BLEED_IN = 0.125                       # 1/8 in, which also covers the 3 mm most shops ask for
+BLEED_MARGIN = 18                      # with bleed, bleed boxes touch and marks sit in the margin only
+
+
+def expected_pages(items, paper, bleed=False):
+    """items: (w_pt, h_pt) trim sizes per board in sheet order -> the page count printLayout() produces."""
+    if not paper:
+        return len(items)
+    pw, ph = PAPER[paper]
+    b = BLEED_IN * 72 if bleed else 0
+    margin, gutter = (BLEED_MARGIN, 0) if bleed else (PAPER_MARGIN, PAPER_GUTTER)
+    pages = i = 0
+    while i < len(items):
+        w, h = items[i]
+        cols = math.floor((pw - 2 * margin + gutter) / (w + 2 * b + gutter))
+        rows = math.floor((ph - 2 * margin + gutter) / (h + 2 * b + gutter))
+        pages += 1
+        if cols < 1 or rows < 1:
+            i += 1
+            continue
+        n = 0
+        while n < cols * rows and i < len(items) and items[i] == (w, h):
+            n += 1
+            i += 1
+    return pages
+
+
+def pdf_summary(data):
+    """(page count, distinct page sizes as text) read from the uncompressed page dicts Chrome writes."""
+    pages = len(re.findall(rb"/Type\s*/Page(?![A-Za-z])", data))
+    sizes = []
+    for box in re.findall(rb"/MediaBox\s*\[\s*0 0 ([\d.]+) ([\d.]+)\s*\]", data):
+        w, h = (float(v) / 72 for v in box)
+        label = f"{w:.2f} × {h:.2f} in".replace(".00", "")
+        if label not in sizes:
+            sizes.append(label)
+    return pages, sizes
+
+
+def print_pdf(chrome, url, out_path, budget, timeout):
+    profile = tempfile.mkdtemp(prefix="mib-pdf-")
+    part = out_path.with_name(f".{out_path.name}.part")
+    part.unlink(missing_ok=True)
+    args = [
+        chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars",
+        f"--user-data-dir={profile}", "--no-pdf-header-footer", f"--virtual-time-budget={budget}",
+        f"--print-to-pdf={part}", url,
+    ]
+    proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        deadline, last = time.time() + timeout, -1
+        while time.time() < deadline:
+            if part.exists():
+                size = part.stat().st_size
+                if size and size == last and part.read_bytes()[-32:].rstrip().endswith(b"%%EOF"):
+                    break
+                last = size
+            elif proc.poll() is not None:
+                raise ExportError(f"chrome exited without writing a PDF ({url})")
+            time.sleep(0.3)
+        else:
+            raise ExportError(f"chrome did not write a PDF within {timeout}s ({url})")
+    finally:
+        proc.kill()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        shutil.rmtree(profile, ignore_errors=True)
+    data = part.read_bytes()
+    shutil.move(str(part), str(out_path))
+    return data
+
+
+def export_pdf(chrome, base_url, jobs, paper, bleed, out_path, timeout):
+    expected = expected_pages([(j["w_pt"], j["h_pt"]) for j in jobs], paper, bleed)
+    query = "mib-print=" + (paper or "1") + ("&mib-bleed=1" if bleed else "")
+    if jobs and any(j.get("picked") for j in jobs):
+        query += "&mib-boards=" + ",".join(str(j["idx"]) for j in jobs)
+    for budget in (5000, 15000):
+        data = print_pdf(chrome, f"{base_url}?{query}", out_path, budget, timeout)
+        pages, sizes = pdf_summary(data)
+        if pages == expected:
+            return pages, sizes
+    raise ExportError(f"{out_path.name}: {pages} pages, expected {expected} (the print layout was not ready)")
 
 
 def collect_css(doc, sheet_path):
@@ -321,7 +441,10 @@ def main():
     ap.add_argument("sheet")
     ap.add_argument("-o", "--outdir", required=True)
     ap.add_argument("--boards", help='1-based selector into the exportable boards, e.g. "1,3-5" (default: all)')
-    ap.add_argument("--scale", type=float, default=2)
+    ap.add_argument("--scale", type=float, default=2, help="PNG only")
+    ap.add_argument("--pdf", action="store_true", help="write one vector PDF instead of PNGs")
+    ap.add_argument("--paper", choices=sorted(PAPER), help="with --pdf: impose boards on this paper with cut marks")
+    ap.add_argument("--bleed", action="store_true", help="with --pdf: extend each board's ground 1/8 in past the trim (print profiles)")
     ap.add_argument("--chrome", help="path to a Chrome/Chromium binary")
     ap.add_argument("--parallel", type=int, default=4, help="boards to export concurrently")
     ap.add_argument("--timeout", type=float, default=30, help="seconds to wait for each Chrome screenshot")
@@ -338,6 +461,9 @@ def main():
         sys.exit("export.py: no boards found in the sheet")
     css = collect_css(doc, sheet_path)
     sizes = parse_medium_sizes(css)
+    dpis = parse_medium_dpis(css)
+    if args.paper or args.bleed:
+        args.pdf = True
 
     exportable = [(i, b) for i, b in enumerate(boards) if not b["template"]]
     if not exportable:
@@ -364,16 +490,30 @@ def main():
         seen_names[name] = seen_names.get(name, 0) + 1
         n = seen_names[name]
         fname = f"{name}@{fmt_scale(args.scale)}x.png" if n == 1 else f"{name}-{n}@{fmt_scale(args.scale)}x.png"
-        jobs.append({"pos": pos, "idx": idx, "title": b["title"], "w": w, "h": h, "out": outdir / fname})
+        dpi = board_dpi(b, dpis)
+        jobs.append({"pos": pos, "idx": idx, "title": b["title"], "w": w, "h": h, "out": outdir / fname,
+                     "w_pt": w * 72 / dpi, "h_pt": h * 72 / dpi, "picked": bool(args.boards)})
 
     httpd, port = start_server()
     base_url = f"http://127.0.0.1:{port}{quote(str(sheet_path), safe='/')}"
     failures = []
+    if args.pdf:
+        title = re.search(r"<title>(.*?)</title>", doc, re.S)
+        name = slug(html.unescape(title.group(1)) if title else sheet_path.stem)
+        out = outdir / f"{name}{'-' + args.paper if args.paper else ''}{'-bleed' if args.bleed else ''}.pdf"
+        try:
+            pages, page_sizes = export_pdf(chrome, base_url, jobs, args.paper, args.bleed, out, max(args.timeout, 60))
+            print(f"{out}  {pages} {'page' if pages == 1 else 'pages'}  ({', '.join(page_sizes)}; {len(jobs)} boards)")
+        except ExportError as e:
+            failures.append(str(e))
+            print(f"export.py: FAILED {out.name}: {e}", file=sys.stderr)
+        finally:
+            httpd.shutdown()
     try:
         with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
             futs = {
                 ex.submit(export_board, chrome, base_url, j["idx"], j["w"], j["h"], args.scale, j["out"], args.timeout): j
-                for j in jobs
+                for j in ([] if args.pdf else jobs)
             }
             for fut in as_completed(futs):
                 j = futs[fut]
@@ -387,7 +527,7 @@ def main():
         httpd.shutdown()
 
     if failures:
-        sys.exit(f"export.py: {len(failures)} of {len(jobs)} board(s) failed")
+        sys.exit("export.py: the PDF failed" if args.pdf else f"export.py: {len(failures)} of {len(jobs)} board(s) failed")
 
     httpd, port = start_server()
     try:

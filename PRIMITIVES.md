@@ -71,8 +71,8 @@ A sheet is one self-contained HTML file. Content first, runtime last. Claude wri
 
 ## 2. Board
 
-One board is one exported image. Every board is a `<section class="board">` directly inside
-`.sheet`.
+One board is one exported image, or one page of a PDF. Every board is a `<section class="board">`
+directly inside `.sheet`; for a multi-page document the sheet order is the page order.
 
 ```html
 <section class="board" data-medium="social-square" data-title="Launch square">
@@ -386,6 +386,7 @@ board. "—" means the primitive doesn't belong on that medium.
 |---|---|---|---|---|---|---|---|---|---|
 | `social-square` | ≤ 4 words | ≤ 6 words | ≤ 8 (if no display) | ≤ 12 | ≤ 20 | ≤ 3 × ≤ 5 words | ≤ 2 | 1 (bar ≤ 5 bars, donut ≤ 3) | ≤ 4 nodes |
 | `social-portrait` | ≤ 4 | ≤ 8 | ≤ 10 | ≤ 16 | ≤ 30 | ≤ 4 × ≤ 5 | ≤ 3 | 1 (bar ≤ 6, donut ≤ 4) | ≤ 5 nodes |
+| `carousel` (per page) | ≤ 4 | ≤ 8, cover and last page only | ≤ 10 | ≤ 16 | ≤ 30 | ≤ 4 × ≤ 6 | ≤ 3 | 1 (bar ≤ 6, donut ≤ 4) | ≤ 5 nodes |
 | `infographic` | ≤ 4 per section | — | ≤ 16 | ≤ 12 each, ≤ 2 | ≤ 30 | ≤ 4 × ≤ 8 | ≤ 4 | ≤ 2 (range, dots, bar ≤ 6) | ≤ 6 nodes |
 | `social-landscape` | ≤ 4 | — | ≤ 6 | ≤ 10 | — | — | — | — | — |
 | `chat-header` | ≤ 4 | — | ≤ 7 words and ≤ 36 characters (one line) | ≤ 12 | — | — | — | — | — |
@@ -426,9 +427,15 @@ Forbidden:
 - `position: fixed`, and scroll containers inside a board
 - fonts not declared in the sheet's own `<style>` blocks (a system font is acceptable only as the
   last entry of a stack)
+- `@media print` rules that reach board content: the vector PDF prints the boards, the PNG doesn't,
+  and the two must match
 
 The runtime copies every `<style>` block into each exported SVG, so rules in all of them apply to
 exports automatically.
+
+**PDF.** The sheet's own PDF button builds its pages from these same rasters, so nothing more is
+needed. `export.py --pdf` instead prints the live boards through Chrome for vector text, which paints
+everything allowed above; the one extra rule is the `@media print` line.
 
 ---
 

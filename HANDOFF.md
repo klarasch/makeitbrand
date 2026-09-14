@@ -233,5 +233,6 @@ update with `take-update.sh --dry-run` reporting clean.
 
 ## Not in the POC
 
-Live data, freeform drawing, artifact publishing, animation, PDF export, image generation,
-multi-brand switching inside one sheet.
+Live data, freeform drawing, artifact publishing, animation, image generation,
+multi-brand switching inside one sheet. (PDF export, first left out here, was added on 2026-09-14:
+see NOTES.md.)

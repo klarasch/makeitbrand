@@ -22,15 +22,20 @@ Every profile exists twice, and the two must agree:
   --logo-h: 56px;                   /* 0 = this medium carries no logo */
   --ground-default: bg;             /* bg | surface | accent | inverse | transparent */
   --v-default: spread;              /* top | center | bottom | spread */
+  --dpi: 300;                       /* print profiles only: px per inch, which sets the PDF page size */
 }
 ```
+
+`--dpi` is left out on screen profiles (it defaults to 96, so a 1080 px board is a 810 pt page, 11.25
+in). A print profile sets the resolution its pixels were designed at: a 1050 px nametag at 300 is a
+3.5 in page. Only PDF export reads it.
 
 A `custom` board takes `--board-w`/`--board-h` from its `data-w`/`data-h` and every other property
 from its `data-like` profile (the runtime reads them off a hidden probe board with that medium).
 
 Prose fields, in this order: **px**, **safe**, **ground**, **viewing** (the width the image is
-typically seen at, which is why `k` is what it is), **k** and **floor**, **logo**, **constraints**,
-**avoid**. Density budgets per medium are in PRIMITIVES.md §11.
+typically seen at, which is why `k` is what it is), **k** and **floor**, **logo**, **delivery** (only
+when it isn't one PNG per board), **constraints**, **avoid**. Density budgets per medium are in PRIMITIVES.md §11.
 
 ---
 
@@ -62,6 +67,30 @@ typically seen at, which is why `k` is what it is), **k** and **floor**, **logo*
 
 ```css
 .board[data-medium="social-portrait"]{--board-w:1080px;--board-h:1350px;--safe-t:96px;--safe-r:96px;--safe-b:140px;--safe-l:96px;--k:2.25;--floor:28px;--logo-h:56px;--ground-default:bg;--v-default:spread}
+```
+
+## carousel
+
+- **px** 1080 × 1350 (4:5), every page the same
+- **safe** 110 120 110 120 — LinkedIn's document viewer lays its title bar over the top and its page
+  arrows over the side edges
+- **ground** brand; the cover and the last page may take `art` or `accent`, the pages between share
+  one quieter ground
+- **viewing** in the feed without opening it: ~375 px wide on a phone, ~555 px on a desktop
+- **k** 2.25 · **floor** 28 px
+- **logo** optional, 48 px: on the cover and the last page, not in between
+- **delivery** a PDF (LinkedIn document post), one board per page in sheet order. PNGs only when the
+  user asks for an image carousel on another network
+- **constraints** 4–10 pages. The cover is the hook: a display line and a one-line lead, nothing
+  else. Each page between makes one point, and they share a structure (the same eyebrow form,
+  "Step 2", "Myth 3", and the same element order), so paging feels like a rhythm, not a new layout.
+  The last page is the takeaway or call to action. A running `footer.band` or eyebrow with one
+  `data-bind` on every page ties the set together
+- **avoid** mixing media in one carousel, a new ground on every page, a page that needs zooming
+  (that is an `infographic`), a slide deck's worth of text
+
+```css
+.board[data-medium="carousel"]{--board-w:1080px;--board-h:1350px;--safe-t:110px;--safe-r:120px;--safe-b:110px;--safe-l:120px;--k:2.25;--floor:28px;--logo-h:48px;--ground-default:bg;--v-default:spread}
 ```
 
 ## infographic
@@ -151,12 +180,16 @@ typically seen at, which is why `k` is what it is), **k** and **floor**, **logo*
 - **viewing** printed, read at arm's length
 - **k** 2.5 · **floor** 36 px
 - **logo** required, 80 px
+- **delivery** a print PDF from `export.py --pdf`: `--paper a4` or `letter` for office printing
+  (four tags a sheet, cut marks), or one 3.5 × 5 in page per tag for a print shop or badge printer.
+  `--bleed` runs the ground 1/8 in past the trim so a slightly off cut shows no paper edge: use it
+  for a print shop, and for office sheets cut on a trimmer. Without it the page is the trim size
 - **constraints** a batch template: name, role, optionally a team line. Names are the only large
   text. Budgets are in characters (PRIMITIVES.md §11), checked against the longest row
 - **avoid** a display line, charts
 
 ```css
-.board[data-medium="nametag"]{--board-w:1050px;--board-h:1500px;--safe-t:210px;--safe-r:90px;--safe-b:90px;--safe-l:90px;--k:2.5;--floor:36px;--logo-h:80px;--ground-default:bg;--v-default:spread}
+.board[data-medium="nametag"]{--board-w:1050px;--board-h:1500px;--safe-t:210px;--safe-r:90px;--safe-b:90px;--safe-l:90px;--k:2.5;--floor:36px;--logo-h:80px;--ground-default:bg;--v-default:spread;--dpi:300}
 ```
 
 ## custom
@@ -175,3 +208,7 @@ Two files: `media/<id>.md` (one prose section in the shape above, ≤ 20 lines) 
 Derive `k` from viewing: take the smallest comfortable apparent body size (≈ 12.5 px on a screen), divide by
 the viewing scale, divide by the brand's `--base`, round **up** to 0.25. Set `--floor` to what that gives with a
 16 px base, rounded down, so a brand with a small `--base` still gets readable type.
+
+A printed medium (a postcard, a table tent, a badge of another size) sets `--dpi` to the resolution
+its px are drawn at, normally 300, and gives px = inches × dpi. Its viewing is the reading distance,
+not a screen width.
