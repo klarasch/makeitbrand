@@ -9,7 +9,7 @@ A brand is these files on disk, all fork-owned:
 brand/<name>.css      tokens, @font-face, logo variants            ← required
 brand/<name>.md       voice rules + adaptation rules               ← required
 brand/assets/         font files, logo sources, approved imagery   ← as needed
-brand/default         one line: <name>                             ← required once >1 brand exists
+brand/default         one line: <name>                             ← the install's own; upstream never ships one
 ```
 
 The runtime never changes for a brand. A brand that needs a runtime change is a runtime bug.
@@ -67,6 +67,7 @@ The first nine are slaydy's, with the same names and meanings, so a trained bran
 
   /* grounds */
   --bg-tone: light;       /* light | dark: whether --bg itself is light; picks logo variants */
+  --inverse-bg: …;        /* optional: the dark ground's colour when it isn't the text ink (default --fg) */
   --inset-ground: light;  /* light | dark: the slide ground transparent boards expect */
   --art: …;               /* optional: the art-directed ground for data-ground="art", a background
                              shorthand (layered gradients, glow). Falls back to --bg */

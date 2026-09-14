@@ -84,7 +84,7 @@
   --g-fill: color-mix(in srgb, var(--accent-fg) 14%, transparent);
 }
 .board[data-g="inverse"], .board[data-g="transparent"][data-ink="inverse"], .board[data-g="art"][data-ink="inverse"] {
-  --g-bg: var(--fg); --g-fg: var(--bg);
+  --g-bg: var(--inverse-bg, var(--fg)); --g-fg: var(--bg);
   --g-muted: color-mix(in srgb, var(--bg) 64%, transparent);
   --g-faint: color-mix(in srgb, var(--bg) 18%, transparent);
   --g-fill: color-mix(in srgb, var(--bg) 9%, transparent);
