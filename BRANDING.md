@@ -200,7 +200,9 @@ else, and give the root `<svg>` a `viewBox`.
 Because `currentColor` carries the ground's text colour automatically, an illustration usually needs
 no ground override. A brand whose `--illo-1`…`--illo-4` don't read on `art` or `inverse` (the way a
 brand's own `--accent` sometimes doesn't) overrides them the same way as chart steps (§4, Ground
-overrides): `.board[data-ground="inverse"] { --illo-1: …; }`.
+overrides): `.board[data-g="inverse"] { --illo-1: …; }`. A token that points at another token
+(`--illo-1: var(--accent)`) resolves where it is declared: set on `:root`, it keeps the root
+`--accent` even on a ground that overrides `--accent`, so re-declare it inside that ground's block.
 
 List the available names and the illustration style spec in the voice file's `## Illustration`
 section (§5).
