@@ -9,7 +9,7 @@ assets appended at generation time. If something can't be expressed here, say so
 around it.
 
 Contents: 1 Sheet · 2 Board · 3 Type scale · 4 Text · 5 Containers · 6 Media and logo ·
-7 Diagram · 8 Chart · 9 Table · 10 Bind, notes, batch · 11 Density budgets ·
+6b Illustration · 7 Diagram · 8 Chart · 9 Table · 10 Bind, notes, batch · 11 Density budgets ·
 12 Rasterization-safe CSS · 13 Derived attributes
 
 **Never type a separator character.** No `·`, `•`, `|`, `—` or `/` joining two phrases in an
@@ -164,13 +164,13 @@ editable in edit mode as plain text plus `<strong>`/`<b>`/`<br>`.
 | `<div class="row" data-gap="…" data-align="start\|center\|baseline\|end">` | horizontal flow, wraps. Default gap `sm`. `data-justify="between"` pushes the first and last child apart; `data-divide` draws a hairline between children and makes them share the width equally |
 | `<hr class="rule">` | a full-width hairline between sections |
 | `<div class="grid" data-cols="2…6" data-gap="…">` | equal columns. A child with `data-span="2"` spans columns |
-| `<article class="card" data-tone="surface\|accent\|outline\|glass">` | a bounded group: an optional `.eyebrow`, then `.h3` + `.body`, **or** an optional `.h3` then one `figure.chart` / `table.table` / `figure.media`, **or** (for a badge) a `.row` of an `.icon` and a small `.stack`. Default tone `surface`. `glass` is a translucent panel with a hairline edge, for `art` grounds. At most one `accent` card or tile per board. A card may also hold an `.eyebrow[data-rule]` above its content |
+| `<article class="card" data-tone="surface\|accent\|outline\|glass">` | a bounded group: an optional `.eyebrow`, then `.h3` + `.body`, **or** an optional `.h3` then one `figure.chart` / `table.table` / `figure.media` / `figure.illo`, **or** (for a badge) a `.row` of an `.icon` and a small `.stack`. Default tone `surface`. `glass` is a translucent panel with a hairline edge, for `art` grounds. At most one `accent` card or tile per board. A card may also hold an `.eyebrow[data-rule]` above its content |
 | `<div class="bento" data-cols="2…6" data-rows="1…4">` | a grid that fills its height; children are `.card` or `.tile` with `data-span="c,r"` (default `1,1`) |
 | `<article class="tile" data-tone="surface\|accent\|glass">` | KPI, see below. `glass` on `art` grounds, like cards |
 
 **`data-fill`** makes an element take the remaining height of its container. It is valid on a
-direct child of `.board`. Inside a `.card` or `.tile`, a `figure.chart`, `.diagram` or
-`figure.media` always fills the leftover height and needs no attribute.
+direct child of `.board`. Inside a `.card` or `.tile`, a `figure.chart`, `.diagram`, `figure.media`
+or `figure.illo` always fills the leftover height and needs no attribute.
 
 **Tile.**
 
@@ -220,6 +220,70 @@ direct child of `.board`. Inside a `.card` or `.tile`, a `figure.chart`, `.diagr
   ignores the side safe area) on a darker tint of the ground. One line of `.caption`, ≤ 12 words.
 - A profile with logo `none` ignores `.logo`. The brand's adaptation rules (brand/<name>.md) can
   forbid corners and variants; they win.
+
+---
+
+## 6b. Illustration
+
+`figure.illo` is the only place an illustration may live. **Constrained by default, free on
+demand**: reach for the brand's library first; draw one by hand only when nothing in the library
+fits; loosen its style only when the user explicitly asked for that freedom — and only on the
+illustration itself, never on the rest of the board.
+
+**Library mode** (default) — a named illustration from the brand:
+
+```html
+<figure class="illo" data-illo="network-nodes"></figure>
+```
+
+`data-illo` is resolved like an icon: a brand token `--illo-<name>` points at an SVG file in
+`brand/assets/illustrations/`, which the runtime fetches and inlines with `data-gen`. Names are
+listed in the brand's `## Illustration` section. An unknown name is `data-invalid`.
+
+**Authored mode** — when no library illustration fits, write the `<svg>` yourself as the figure's
+only child, following the brand's `## Illustration` style spec (line vs fill, palette slots,
+density, what never appears):
+
+```html
+<figure class="illo">
+  <svg viewBox="0 0 200 200" fill="none">
+    <circle cx="100" cy="100" r="60" stroke="currentColor" stroke-width="calc(var(--stroke) * 3)"/>
+    <path d="M70 100L92 122L134 78" stroke="var(--illo-1)" stroke-width="calc(var(--stroke) * 4)" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</figure>
+```
+
+**Free mode** — `data-free` on the figure, only when the user explicitly asked for custom colours or
+style on this illustration. It relaxes the palette and stroke-width rules below; it never relaxes
+containment, and it never widens to the rest of the board (no other element gets `data-free`).
+
+```html
+<figure class="illo" data-free data-illo="network-nodes"></figure>
+```
+
+**Rules, checked by the runtime** (`data-invalid` and a reason on failure), for library and authored
+alike:
+
+- the root `<svg>` needs a `viewBox`
+- no `<text>`, no `<image>` or other raster, no `<foreignObject>`
+- no `href`/`xlink:href` pointing outside the board (§12: references resolve within it)
+- unless `data-free`: every `fill`, `stroke` and `stop-color` (attribute or inline `style`) is
+  `none`, `currentColor`, or one of the brand's `--illo-1`…`--illo-4` tokens (also `--chart-accent`,
+  `--accent`, `--accent-2`, `--fg`, `--bg`, `--muted`, `--faint`, `--surface`) — a hard-coded colour
+  (`#hex`, `rgb()`, a named colour) is invalid
+- unless `data-free`: a `stroke-width` is `var(--stroke)` or `calc(var(--stroke) * N)`
+- always, even under `data-free`: the `<svg>` must be inside `figure.illo`. **No inline `<svg>`
+  belongs anywhere else in a board** — not floated over content, not standing in for a background.
+  Any stray `<svg>` outside `figure.illo` and the runtime's own generated marks (a chart's plot, a
+  diagram's edges, an inlined icon) is `data-invalid`
+
+**Sizing.** `figure.illo` fills its container like `figure.media`: full height inside a `.card` or
+`.tile`, or the remaining board height with `data-fill` on a direct board child. A bare `figure.illo`
+in flow gets a modest default box, like an inline `dots` chart. The SVG's own `viewBox` sets its
+aspect; it is never stretched.
+
+An illustration request from the user touches only the boards named and adds `figure.illo` to them —
+it changes no ground, tone or copy elsewhere (SKILL.md §9).
 
 ---
 
@@ -413,7 +477,9 @@ this system**: upstream runtime and stock profiles, `media/*.css`, `brand/<name>
 Allowed: flex and grid layout, borders, border-radius, solid and gradient backgrounds, uniform-alpha
 colours and `color-mix()`, `box-shadow`, static `transform`, `object-fit`, inline `<svg>` whose
 references (`<use href>`, gradients, markers) resolve **inside the same board**, `@font-face` with
-`data:` sources, custom properties.
+`data:` sources, custom properties. The only place a sheet may contain an inline `<svg>` is inside
+`figure.illo` (§6b); elsewhere, `<svg>` is generated by the runtime itself (charts, diagram edges,
+inlined icons and illustrations, all marked `data-gen`).
 
 Forbidden:
 
@@ -446,12 +512,14 @@ The runtime writes these itself.
 Kept by "Copy changes", so they reach Claude — act on them, then drop them:
 
 - `data-overflow` — content overflows its board or its cell. Cut words (§11).
-- `data-invalid="reason"` — a chart or diagram outside its limits (§7, §8), or a broken reference
-  (unknown `data-from`, unknown `data-medium`).
+- `data-invalid="reason"` — a chart or diagram outside its limits (§7, §8), an illustration outside
+  its rules (§6b), or a broken reference (unknown `data-from`, unknown `data-medium`, unknown
+  `data-icon`, unknown `data-illo`).
 
 Stripped by "Copy changes"; remove them if you see them anyway:
 
-- `data-gen` — on elements the runtime generated (edge and chart SVGs, logo images, legends, sparklines)
+- `data-gen` — on elements the runtime generated (edge and chart SVGs, logo images, legends,
+  sparklines, inlined icon and illustration SVGs)
 - `data-empty`, `contenteditable`, `data-edited` — edit-mode state
 - `data-g`, `data-ink`, `data-va`, `data-off` on boards, `data-num` on table cells, and inline `style` on
   boards — the runtime's resolved defaults and sizes

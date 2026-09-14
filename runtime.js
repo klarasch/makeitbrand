@@ -33,7 +33,7 @@
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
   /* derived attributes: written by the runtime, never by authors (PRIMITIVES.md §13) */
-  const STRIP_ATTRS = ["contenteditable", "spellcheck", "data-edited", "data-empty", "data-g", "data-ink", "data-va", "data-off", "data-num", "data-gen", "data-mib-scale", "data-mib-icon"];
+  const STRIP_ATTRS = ["contenteditable", "spellcheck", "data-edited", "data-empty", "data-g", "data-ink", "data-va", "data-off", "data-num", "data-gen", "data-mib-scale", "data-mib-icon", "data-mib-illo"];
   const STYLE_OWNED = ".board, .node, .group, .note, .edge";
   const PROFILE_VARS = ["--safe-t", "--safe-r", "--safe-b", "--safe-l", "--k", "--floor", "--logo-h", "--ground-default", "--v-default", "--dpi"];
   const EDITABLE = [
@@ -98,6 +98,8 @@
       [...l.children].slice(1).forEach(c => c.before(h("i", { class: "lockup__plus", "data-gen": "", "aria-hidden": "true" }, "+")));
     });
     $$(".icon[data-icon]", b).forEach(fillIcon);
+    $$("figure.illo", b).forEach(fillIllo);
+    checkIlloContainment(b);
     $$(".table td", b).forEach(td => {
       if (/^[\s€$£¥+\-−~≈]*[\d][\d.,\s]*\s*(%|k|m|bn|x|×|h|min|s)?$/i.test(td.textContent.trim())) td.setAttribute("data-num", "");
       else td.removeAttribute("data-num");
@@ -166,6 +168,86 @@
       $$("[data-gen]", el).forEach(n => n.remove());
       el.appendChild(document.importNode(doc, true));
       el.dataset.mibIcon = url;
+    });
+  }
+
+  /* ---------- illustrations: figure.illo, library or authored (PRIMITIVES.md §6b, BRANDING.md §1b)
+   * Library mode resolves a brand token like an icon; authored mode validates the author's own
+   * inline <svg> child. Either way the result is checked for containment (always) and, unless
+   * data-free, for brand-only colours (fill/stroke/stop-color) and a var(--stroke)-scaled stroke
+   * width. data-free never relaxes the structural rules: viewBox, no text/image/foreignObject, no
+   * reference outside the board. */
+  const ILLO_COLOR_TOKEN = /^var\(\s*--(illo-[1-4]|chart-accent|accent|accent-2|fg|bg|muted|faint|surface)\s*(,[^)]*)?\)$/;
+  const ILLO_STROKE_W = /^(var\(\s*--stroke\s*\)|calc\(\s*var\(\s*--stroke\s*\)\s*\*\s*[\d.]+\s*\))$/;
+  function illoColorOk(v) {
+    if (v == null) return true;
+    v = v.trim();
+    return v === "" || v === "none" || v === "currentColor" || ILLO_COLOR_TOKEN.test(v);
+  }
+  function illoSvgReason(svg, free) {
+    if (!svg.getAttribute("viewBox")) return "illustration needs a viewBox";
+    if (svg.querySelector("text, image, foreignObject")) return "illustration may not contain text, image or foreignObject";
+    for (const el of [svg, ...svg.querySelectorAll("*")]) {
+      for (const attr of ["href", "xlink:href"]) {
+        const v = el.getAttribute(attr);
+        if (v && !v.startsWith("#")) return "illustration may not reference anything outside the board";
+      }
+      if (free) continue;
+      const swAttr = el.getAttribute("stroke-width");
+      if (swAttr && !ILLO_STROKE_W.test(swAttr.trim())) return "stroke-width must be var(--stroke), scaled with calc()";
+      const swStyle = el.style?.getPropertyValue("stroke-width");
+      if (swStyle && !ILLO_STROKE_W.test(swStyle.trim())) return "stroke-width must be var(--stroke), scaled with calc()";
+      for (const prop of ["fill", "stroke", "stop-color"]) {
+        const av = el.getAttribute(prop);
+        if (av && !illoColorOk(av)) return `illustration uses a hard-coded ${prop} colour`;
+        const sv = el.style?.getPropertyValue(prop);
+        if (sv && !illoColorOk(sv)) return `illustration uses a hard-coded ${prop} colour`;
+      }
+    }
+    return null;
+  }
+
+  const illoCache = new Map();
+  function fillIllo(fig) {
+    const free = fig.hasAttribute("data-free");
+    const name = fig.dataset.illo;
+    if (!name) {
+      // authored mode: the figure's own inline <svg> child
+      $$("[data-gen]", fig).forEach(n => n.remove());
+      const svg = $(":scope > svg", fig);
+      if (!svg) return invalid(fig, "figure.illo needs data-illo or an inline svg");
+      const reason = illoSvgReason(svg, free);
+      return reason ? invalid(fig, reason) : fig.removeAttribute("data-invalid");
+    }
+    // library mode: resolve like an icon, then validate the fetched svg the same way
+    const token = `--illo-${name}`;
+    const raw = cssVar(fig, token);
+    const m = /^url\(\s*(['"]?)(.*?)\1\s*\)$/.exec(raw);
+    if (!m) { $$("[data-gen]", fig).forEach(n => n.remove()); return invalid(fig, `unknown illustration "${name}"`); }
+    const url = m[2].startsWith("data:") ? m[2] : new URL(m[2], baseFor(token, raw)).href;
+    const cacheKey = url + (free ? "|free" : "");
+    if (fig.dataset.mibIllo === cacheKey && $(":scope > svg[data-gen]", fig)) return;
+    if (!illoCache.has(url)) illoCache.set(url, fetch(url).then(r => r.text()).catch(() => ""));
+    illoCache.get(url).then(src => {
+      const doc = new DOMParser().parseFromString(src, "image/svg+xml").documentElement;
+      $$(":scope > svg", fig).forEach(n => n.remove());
+      if (!doc || doc.nodeName !== "svg") return invalid(fig, `illustration "${name}" is not an SVG`);
+      const reason = illoSvgReason(doc, free);
+      if (reason) return invalid(fig, reason);
+      doc.removeAttribute("width"); doc.removeAttribute("height");
+      doc.setAttribute("data-gen", ""); doc.setAttribute("aria-hidden", "true");
+      fig.appendChild(document.importNode(doc, true));
+      fig.dataset.mibIllo = cacheKey;
+      fig.removeAttribute("data-invalid");
+    });
+  }
+
+  // any inline <svg> anywhere in a board must be runtime-generated (data-gen: icons, charts, edges)
+  // or live inside figure.illo (validated above) — PRIMITIVES.md §12, §6b
+  function checkIlloContainment(b) {
+    $$("svg", b).forEach(svg => {
+      if (svg.hasAttribute("data-gen") || svg.closest(".illo")) return;
+      invalid(svg, "inline svg is only allowed inside figure.illo");
     });
   }
 

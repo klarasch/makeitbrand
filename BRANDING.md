@@ -65,6 +65,10 @@ The first nine are slaydy's, with the same names and meanings, so a trained bran
   --good: /* status: better — ≥ 4.5:1 on --surface, where tiles sit */
   --bad:  /* status: worse — same */
 
+  /* illustration */
+  --illo-1 … --illo-4: /* optional: the palette figure.illo may paint with (§4c). Falls back to
+                          --accent, --accent-2, --chart-1, --fg — every brand gets a usable set */
+
   /* grounds */
   --bg-tone: light;       /* light | dark: whether --bg itself is light; picks logo variants */
   --inverse-bg: …;        /* optional: the dark ground's colour when it isn't the text ink (default --fg) */
@@ -173,6 +177,33 @@ A brand may ship an iconset: one SVG per icon in `assets/icons/`, drawn on a 24�
 Markup uses `<i class="icon" data-icon="shield">`; the runtime inlines the SVG, so icons export
 crisply and will survive native SVG export. List the available names in the voice file. The demo
 set (`brand/icons.css`, shipped with the stock brands) is a good starting point.
+
+---
+
+## 4c. Illustrations
+
+A brand may ship a small library for `figure.illo` (PRIMITIVES.md §6b): one SVG per illustration in
+`assets/illustrations/`, and one `--illo-<name>` token per file, in the brand's own stylesheet (not
+`icons.css` — illustrations are bigger, slower-changing, and brand-specific):
+
+```css
+:root { --illo-network-nodes: url("assets/illustrations/network-nodes.svg"); /* … */ }
+```
+
+Colours inside the SVG are `none`, `currentColor`, or `var(--illo-1)` … `var(--illo-4)` only — the
+runtime rejects anything else (PRIMITIVES.md §6b). `currentColor` inherits the board's ink, so most
+of an illustration should use it; reserve `--illo-1`…`--illo-4` for the one or two marks meant to pop
+regardless of ground, the way `--chart-accent` does for a chart. Write `stroke-width` as
+`var(--stroke)` or `calc(var(--stroke) * N)` so line weight scales with the board like everything
+else, and give the root `<svg>` a `viewBox`.
+
+Because `currentColor` carries the ground's text colour automatically, an illustration usually needs
+no ground override. A brand whose `--illo-1`…`--illo-4` don't read on `art` or `inverse` (the way a
+brand's own `--accent` sometimes doesn't) overrides them the same way as chart steps (§4, Ground
+overrides): `.board[data-ground="inverse"] { --illo-1: …; }`.
+
+List the available names and the illustration style spec in the voice file's `## Illustration`
+section (§5).
 
 ---
 

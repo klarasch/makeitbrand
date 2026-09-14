@@ -200,6 +200,14 @@ when it isn't one PNG per board), **constraints**, **avoid**. Density budgets pe
 
 ---
 
+## Illustration fit
+
+`figure.illo` (PRIMITIVES.md §6b) suits a `social-square`, `social-portrait` or `carousel` board
+that needs a visual anchor beyond type, and an `infographic` section that isn't carrying a chart. It
+crowds a `dashboard` (data only), a `nametag` (no room, no reason) and `chat-header` (one line, no
+figure); a `slide-inset` stays to the slide's own visuals, so bring one only if the slide has none.
+At most one illustration per board — it is the visual anchor, not decoration alongside a chart.
+
 ## Writing a profile for a fork
 
 Two files: `media/<id>.md` (one prose section in the shape above, ≤ 20 lines) and `media/<id>.css`

@@ -15,6 +15,8 @@
   --chart-4: #eda100; --chart-5: #e87ba4; --chart-6: #008300;
   --good: #1b7340; --bad: #b83d17;
   --logo-min: 16px;
+  /* illustration palette (BRANDING.md §1b): a brand without one still gets a coherent, token-only set */
+  --illo-1: var(--accent); --illo-2: var(--accent-2); --illo-3: var(--chart-1); --illo-4: var(--fg);
 }
 
 /* ============================================================ medium profiles
@@ -229,7 +231,7 @@ ol.list > li::before {
   border-color: color-mix(in srgb, var(--g-fg) 16%, transparent);
   --g-fill: color-mix(in srgb, var(--g-fg) 8%, transparent);
 }
-.card > :is(figure.chart, .diagram, figure.media, table.table) { flex: 1 1 0; min-height: 0; }
+.card > :is(figure.chart, .diagram, figure.media, figure.illo, table.table) { flex: 1 1 0; min-height: 0; }
 .tile { gap: var(--gap-xs); }
 .tile > .caption { margin-bottom: var(--gap-sm); }
 /* without a sparkline the figure sits at the bottom, so tiles of any height share a baseline */
@@ -249,6 +251,12 @@ ol.list > li::before {
 figure.media { position: relative; overflow: hidden; border-radius: var(--r); background: var(--g-fill); min-height: 0; }
 figure.media > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 figure.media[data-crop="contain"] > img { object-fit: contain; }
+
+/* figure.illo sizes like figure.media: fills a card, or a board child with data-fill; a bare
+   figure.illo in flow gets a modest default box, like an inline dots chart */
+figure.illo { display: flex; margin: 0; min-height: 0; color: var(--g-fg); }
+figure.illo > svg { width: 100%; height: 100%; display: block; overflow: visible; }
+:not(.card):not(.tile):not([data-fill]) > figure.illo { flex: 0 0 auto; width: calc(var(--body) * 9); height: calc(var(--body) * 9); }
 
 .logo { height: var(--logo-hh); display: flex; align-items: center; flex: 0 0 auto; }
 .logo > img { display: block; height: 100%; width: auto; }

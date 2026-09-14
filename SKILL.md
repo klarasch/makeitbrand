@@ -112,6 +112,10 @@ quote, band"), then write it.
 - Charts: pick the form by the job (PRIMITIVES §8). Always a figcaption with a source.
 - Diagrams: lay the grid out on paper first (columns × rows, who sits where), keep the main flow on
   one row, apply the routing rules, and at most one accent node.
+- Illustrations: use the brand's `figure.illo` library first (PRIMITIVES §6b); draw one by hand only
+  when nothing in the library fits, following the brand's `## Illustration` spec exactly. `data-free`
+  only when the user explicitly asked for custom colours or style. An illustration request adds
+  `figure.illo` to the boards named and changes nothing else — no grounds, no tones, no copy.
 - Count words against PRIMITIVES §11 for every text element. Over budget → cut, never shrink.
 
 **Build the file.**
@@ -273,7 +277,9 @@ Needs a shell and git. Mechanics in `UPDATING.md`; order:
 - Never write CSS or JavaScript into a sheet. No `<style>`, `<script>` or `style=` above the marker.
 - Never edit `runtime.*`, a brand file or a profile to make one sheet work. Missing primitive → say
   so; that is an upstream request, not a workaround.
-- Never invent a class, a data attribute value, an icon name, a medium id or an image path.
+- Never invent a class, a data attribute value, an icon name, an illustration name, a medium id or
+  an image path.
+- Never write an inline `<svg>` outside `figure.illo` (PRIMITIVES §6b, §9).
 - Never invent the user's content (§2). Placeholders are flagged with `data-note`.
 - Never exceed the density budgets. Cut words instead.
 - Never type a separator character (`·`, `•`, `|`, `—`, `/`) to join phrases, and no emoji.
