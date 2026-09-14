@@ -60,4 +60,13 @@
   --logo-light: url("assets/logo/halcyon-light.svg");
   --logo-mono: url("assets/logo/halcyon-mono.svg");
   --logo-min: 20px;
+
+  /* illustration palette: lime for the one emphasis mark, violet and blue as quiet seconds */
+  --illo-1: var(--accent);
+  --illo-2: #8d6cf5;
+  --illo-3: #1a8fc4;
+  --illo-4: var(--fg);
+  --illo-network-nodes: url("assets/illustrations/network-nodes.svg");
+  --illo-growth-steps: url("assets/illustrations/growth-steps.svg");
+  --illo-shield-check: url("assets/illustrations/shield-check.svg");
 }
