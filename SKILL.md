@@ -181,11 +181,21 @@ links from §3 below the marker, and revise that. Never read or edit below the m
 Then:
 
 1. Read `<meta name="makeitbrand-brief">`; stay consistent with it.
-2. `grep -o 'data-note="[^"]*"'` — apply each user note, then remove the attribute. Notes that start
+2. `python3 <skill>/sheet.py work/sheet.html --snapshot` before touching anything.
+3. `grep -o 'data-note="[^"]*"'` — apply each user note, then remove the attribute. Notes that start
    with `placeholder:` are yours: keep them until the user supplies the value.
-3. Fix every `data-overflow` (cut words) and `data-invalid` (read the reason) you find.
-4. Change only what was asked. The user's wording is theirs.
-5. Re-check budgets on every board you touched, rebuild with `sheet.py`, check as in §3.
+4. Fix every `data-overflow` (cut words) and `data-invalid` (read the reason) you find.
+5. Change only what was asked. The user's wording is theirs. A request's scope is its boards **and**
+   its kind of change: "add illustrations" never permits ground, tone or copy changes; "shorter
+   headline on the square" never permits touching another board.
+6. Re-check budgets on every board you touched, rebuild with `sheet.py`, check as in §3.
+7. `python3 <skill>/sheet.py work/sheet.html --diff --allow "<boards the request named>"` (all
+   boards' titles, comma-separated, when the request was sheet-wide). It fails on any board outside
+   `--allow` that changed or was removed, on a new board not in `--allow`, or on a protected
+   board-level attribute (`data-ground`, `data-medium`, `data-tone`, `data-v`, `data-h-align`,
+   `data-w`, `data-h`, `data-like`) that changed without `--allow-attr` naming it. When it fails,
+   **fix the drift, never widen `--allow`/`--allow-attr`** to make it pass — the diff caught scope
+   creep, not a false positive.
 
 ---
 
@@ -271,6 +281,7 @@ Needs a shell and git. Mechanics in `UPDATING.md`; order:
 ## 9. Hard rules
 
 - Never write CSS or JavaScript into a sheet. No `<style>`, `<script>` or `style=` above the marker.
+  `sheet.py` refuses to build a sheet that has one.
 - Never edit `runtime.*`, a brand file or a profile to make one sheet work. Missing primitive → say
   so; that is an upstream request, not a workaround.
 - Never invent a class, a data attribute value, an icon name, a medium id or an image path.
@@ -282,3 +293,5 @@ Needs a shell and git. Mechanics in `UPDATING.md`; order:
 - Never ask more than one round of questions.
 - On chat surfaces, hand over only the inlined sheet (and the PNGs or the PDF when exported).
 - Never mix media in a PDF delivery: a carousel's pages are all `carousel`, a print batch is one medium.
+- Never change more than the revise request's own boards and kind of change (§5). `sheet.py --diff`
+  enforces this; a failing diff means fix the drift, not widen `--allow`.

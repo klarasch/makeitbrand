@@ -75,7 +75,8 @@ when it isn't one PNG per board), **constraints**, **avoid**. Density budgets pe
 - **safe** 110 120 110 120 — LinkedIn's document viewer lays its title bar over the top and its page
   arrows over the side edges
 - **ground** brand; the cover and the last page may take `art` or `accent`, the pages between share
-  one quieter ground
+  one quieter ground. The runtime marks a middle page `data-invalid` when its ground differs from
+  the others' — fix the ground, don't widen the check
 - **viewing** in the feed without opening it: ~375 px wide on a phone, ~555 px on a desktop
 - **k** 2.25 · **floor** 28 px
 - **logo** optional, 48 px: on the cover and the last page, not in between

@@ -235,3 +235,17 @@ mode; the board picker has a fixed width per breakpoint, with ‹ › as a joine
 Open: the brand fork's
 `SKILL.fork.md` description still says "with PNG export"; it should gain the carousel and PDF
 triggers when it takes this update.
+
+**Drift guards** (agents were asked to "add illustrations to a carousel" and repainted untouched
+pages' grounds too — SKILL §5 said "change only what was asked" but nothing enforced it):
+
+- `sheet.py --snapshot` / `--diff [--allow …] [--allow-attr …]`: per-board content hash (notes and
+  `[data-gen]` ignored) and board-level attributes, keyed by `data-title`. `--diff` fails on any
+  board outside `--allow` that changed or was removed, a new board not in `--allow`, or a protected
+  attribute (`data-ground`, `data-medium`, `data-tone`, `data-v`, `data-h-align`, `data-w`, `data-h`,
+  `data-like`) changed without `--allow-attr`. Wired into SKILL §5's revise steps.
+- Runtime: a carousel's pages between cover and last must share one `data-g`; a minority page is
+  marked `data-invalid`, so `export.py` fails the build. Brand-specific ground rules aren't checkable
+  generically and were left alone.
+- `sheet.py` now refuses to build (before any of the above) when the markup above the runtime marker
+  has `<style`, `<script`, or a `style=` attribute — checked demo sheets still build clean.

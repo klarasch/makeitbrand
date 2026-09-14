@@ -18,10 +18,21 @@ board per row. Works on the dev form or the inlined form, and can run together w
 
 Re-running --rows on an already-materialised sheet replaces the previous `data-row` boards rather
 than duplicating them.
+
+Scope guard (SKILL.md §5): snapshot a sheet before revising it, diff after, to catch drift beyond
+what was asked.
+
+    python3 sheet.py work/sheet.html --snapshot                     # before editing
+    python3 sheet.py work/sheet.html --diff --allow "Carousel 3 pricing"   # after
+
+--diff exits non-zero if a board outside --allow changed or was removed, a new board isn't in
+--allow, or a protected board-level attribute (look/layout: data-ground, data-medium, data-tone,
+data-v, data-h-align, data-w, data-h, data-like) changed without --allow-attr naming it.
 """
 import argparse
 import base64
 import csv
+import hashlib
 import html
 import json
 import mimetypes
@@ -30,6 +41,8 @@ import sys
 from pathlib import Path
 
 MARKER = "<!-- makeitbrand:runtime"
+SNAPSHOT_NAME = ".makeitbrand-snapshot.json"
+PROTECTED_ATTRS = ["data-ground", "data-medium", "data-tone", "data-v", "data-h-align", "data-w", "data-h", "data-like"]
 mimetypes.add_type("font/woff2", ".woff2")
 mimetypes.add_type("font/woff", ".woff")
 mimetypes.add_type("image/svg+xml", ".svg")
@@ -38,6 +51,117 @@ BOARD_RE = re.compile(r'<section\b(?=[^>]*\bclass="board")[^>]*>.*?</section>', 
 MAIN_RE = re.compile(r'(<main\b[^>]*\bclass="sheet"[^>]*>)(.*)(</main>)', re.S)
 FIELD_RE = re.compile(r'(<([a-zA-Z0-9]+)\b[^>]*\bdata-field="([^"]+)"[^>]*>)(.*?)(</\2>)', re.S)
 TITLE_ATTR_RE = re.compile(r'\bdata-title="([^"]*)"')
+ATTR_RE = re.compile(r'([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*"([^"]*)"')
+GEN_TAG_RE = re.compile(r'<([a-zA-Z0-9]+)\b[^>]*\bdata-gen\b[^>]*>.*?</\1>', re.S)
+NOTE_ATTR_RE = re.compile(r'\s+data-note="[^"]*"')
+
+
+def check_hard_rules(head: str, src: Path):
+    """SKILL.md §9: never write CSS or JS into a sheet. Above the runtime marker only."""
+    if re.search(r'<style\b', head, re.I):
+        sys.exit(f"sheet.py: {src} has a <style> above the runtime marker (SKILL §9)")
+    if re.search(r'<script\b', head, re.I):
+        sys.exit(f"sheet.py: {src} has a <script> above the runtime marker (SKILL §9)")
+    if re.search(r'(?<![\w-])style\s*=\s*["\']', head):
+        sys.exit(f"sheet.py: {src} has a style= attribute above the runtime marker (SKILL §9)")
+
+
+def parse_attrs(open_tag: str) -> dict:
+    return {m.group(1): html.unescape(m.group(2)) for m in ATTR_RE.finditer(open_tag)}
+
+
+def normalize_inner(inner: str) -> str:
+    """Content used for the diff hash: drop notes and runtime-generated markup, collapse whitespace."""
+    inner = GEN_TAG_RE.sub("", inner)
+    inner = NOTE_ATTR_RE.sub("", inner)
+    inner = re.sub(r'>\s+<', '><', inner.strip())
+    inner = re.sub(r'\s+', ' ', inner)
+    return inner
+
+
+def board_records(head: str) -> dict:
+    """Per-board (by data-title) snapshot: board-level attributes and a hash of normalized content."""
+    m = MAIN_RE.search(head)
+    inner = m.group(2) if m else head
+    records = {}
+    for bm in BOARD_RE.finditer(inner):
+        board_html = bm.group(0)
+        open_tag = board_html[: board_html.index(">") + 1]
+        body = board_html[len(open_tag): -len("</section>")]
+        attrs = parse_attrs(open_tag)
+        title = attrs.pop("data-title", None)
+        if not title:
+            sys.exit(f"sheet.py: a board has no data-title: {open_tag[:80]}")
+        if title in records:
+            print(f"sheet.py: WARNING duplicate data-title {title!r}; only the last is snapshotted", file=sys.stderr)
+        records[title] = {
+            "attrs": attrs,
+            "hash": hashlib.sha256(normalize_inner(body).encode()).hexdigest()[:16],
+        }
+    return records
+
+
+def read_head(src: Path) -> str:
+    doc = src.read_text(encoding="utf-8")
+    at = doc.find(MARKER)
+    if at < 0:
+        sys.exit(f"sheet.py: no '{MARKER}' marker in {src}")
+    return doc[:at]
+
+
+def cmd_snapshot(src: Path):
+    records = board_records(read_head(src))
+    dest = src.parent / SNAPSHOT_NAME
+    dest.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
+    print(f"{dest}  {len(records)} board(s)")
+
+
+def cmd_diff(src: Path, allow: str, allow_attr: str):
+    snap_path = src.parent / SNAPSHOT_NAME
+    if not snap_path.exists():
+        sys.exit(f"sheet.py: no snapshot at {snap_path}; run --snapshot first")
+    before = json.loads(snap_path.read_text(encoding="utf-8"))
+    current = board_records(read_head(src))
+    allow_set = {t.strip() for t in (allow or "").split(",") if t.strip()}
+    allow_attr_set = {a.strip() for a in (allow_attr or "").split(",") if a.strip()}
+
+    bad = False
+    for title in sorted(set(before) | set(current)):
+        b, c = before.get(title), current.get(title)
+        if b is None:
+            ok = title in allow_set
+            bad = bad or not ok
+            print(f"+ {title}: added" + ("" if ok else "  [SCOPE: not in --allow]"))
+            continue
+        if c is None:
+            ok = title in allow_set
+            bad = bad or not ok
+            print(f"- {title}: removed" + ("" if ok else "  [SCOPE: not in --allow]"))
+            continue
+
+        attr_changes = [
+            (k, b["attrs"].get(k), c["attrs"].get(k))
+            for k in sorted(set(b["attrs"]) | set(c["attrs"]))
+            if b["attrs"].get(k) != c["attrs"].get(k)
+        ]
+        content_changed = b["hash"] != c["hash"]
+        if not content_changed and not attr_changes:
+            print(f"= {title}: unchanged")
+            continue
+
+        parts = []
+        if content_changed:
+            ok = title in allow_set
+            bad = bad or not ok
+            parts.append("content changed" + ("" if ok else "  [SCOPE: not in --allow]"))
+        for k, ov, nv in attr_changes:
+            protected = k in PROTECTED_ATTRS
+            ok = not protected or k in allow_attr_set
+            bad = bad or not ok
+            parts.append(f'{k} {ov!r}→{nv!r}' + ("" if ok else "  [SCOPE: protected, not in --allow-attr]"))
+        print(f"~ {title}: " + "; ".join(parts))
+
+    sys.exit(1 if bad else 0)
 
 
 def load_rows(path: Path):
@@ -194,18 +318,33 @@ def prefer_min(path: Path) -> Path:
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("sheet")
-    ap.add_argument("-o", "--out", required=True)
+    ap.add_argument("-o", "--out", help="required unless --snapshot or --diff")
     ap.add_argument("--brand", help="brand stylesheet to use instead of the one the sheet links")
     ap.add_argument("--no-min", action="store_true", help="inline runtime.css/js even if .min files exist")
     ap.add_argument("--rows", help="CSV or JSON file of rows to materialise a data-template board against")
+    ap.add_argument("--snapshot", action="store_true", help="write a per-board content/attribute snapshot next to the sheet")
+    ap.add_argument("--diff", action="store_true", help="compare the sheet to its last --snapshot; non-zero on out-of-scope drift")
+    ap.add_argument("--allow", help="--diff: comma-separated data-title list allowed to change or be added")
+    ap.add_argument("--allow-attr", help="--diff: comma-separated protected attribute names allowed to change")
     args = ap.parse_args()
 
     src = Path(args.sheet).resolve()
+
+    if args.snapshot:
+        cmd_snapshot(src)
+        return
+    if args.diff:
+        cmd_diff(src, args.allow, args.allow_attr)
+        return
+    if not args.out:
+        ap.error("-o/--out is required unless --snapshot or --diff is given")
+
     doc = src.read_text(encoding="utf-8")
     at = doc.find(MARKER)
     if at < 0:
         sys.exit(f"sheet.py: no '{MARKER}' marker in {src}")
     head, tail = doc[:at], doc[at:]
+    check_hard_rules(head, src)
 
     if args.rows:
         rows = load_rows(Path(args.rows))

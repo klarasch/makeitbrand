@@ -532,7 +532,29 @@
       warn.textContent = over ? "overflows, cut words" : inv ? inv : "";
     }
   }
-  const checkAll = () => boards.forEach(checkBoard);
+  // MEDIA.md carousel: cover and last page may take their own ground; the pages between share one.
+  const CAROUSEL_REASON = "carousel pages between the cover and the last page must share one ground";
+  function checkCarousels() {
+    const pages = boards.filter(b => b.dataset.medium === "carousel");
+    const mid = pages.slice(1, -1);
+    mid.forEach(b => {
+      if (b.getAttribute("data-invalid")?.startsWith(CAROUSEL_REASON)) b.removeAttribute("data-invalid");
+    });
+    if (mid.length < 2) return;
+    const counts = new Map();
+    mid.forEach(b => {
+      const g = b.getAttribute("data-g");
+      counts.set(g, (counts.get(g) || 0) + 1);
+    });
+    const majority = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    mid.forEach(b => {
+      const g = b.getAttribute("data-g");
+      if (g !== majority && !b.hasAttribute("data-invalid")) {
+        invalid(b, `${CAROUSEL_REASON}; this page is "${g}", the others are "${majority}"`);
+      }
+    });
+  }
+  const checkAll = () => { checkCarousels(); boards.forEach(checkBoard); };
   const checkSoon = debounce(checkAll, 250);
 
   /* ============================================================ edit mode */
