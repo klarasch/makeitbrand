@@ -215,6 +215,28 @@ row here (MEDIA.md, Writing a profile). "No exclamation marks" is a rule; "be co
 **Voice** — 5–10 rules: tone, banned words, how headlines are written, number formatting,
 naming. Same style as slaydy's `themes/<name>.md`.
 
+**Illustration** (§4c) — its own `## Illustration` section, concrete and checkable like the other
+two, so both a person and an authored `figure.illo` can be checked against it. Required fields, in
+this order:
+
+- **Style** — line vs fill (are shapes `currentColor` outlines or flat fills?), corner style
+  (sharp or round joins), what carries the emphasis (which `--illo-<n>` slot, and how many marks
+  may use it — usually one, the same "one accent" rule as a chart's `data-highlight`).
+- **Palette use** — what each of `--illo-1`…`--illo-4` is for (emphasis vs structure vs echo), and
+  when `currentColor` is preferred over a token.
+- **Density** — a shape-count ceiling ("at most 5–7 shapes") so an illustration reads at a glance.
+- **Never** — a short list of what must not appear (gradients, photographic or textured fills,
+  drop shadows, more than one filled shape, decorative clutter around the subject — trim to what
+  the brand actually needs to rule out).
+- **Library** — one line, `Library (`figure.illo[data-illo]`): `<name>` (one-clause description of
+  what it depicts or is used for), `<name>` (…), …` for every SVG in `brand/assets/illustrations/`,
+  ending "Reach for one of these before drawing an authored illustration." `sheet.py
+  --promote-illo` appends to this exact line, so keep the sentence shape when hand-editing it.
+
+A brand with no illustration style writes `## Illustration` as one line, `none: use icons and
+charts`, skips `--illo-1`…`--illo-4` and the Library line, and Compose (SKILL.md §3) then never
+adds a `figure.illo` unless the user explicitly asks for one.
+
 **Adaptation** — how the brand degrades across media and grounds. Each rule names a condition and an
 action, and the condition is something the generator can check: a medium id, a board width, a ground,
 a primitive.

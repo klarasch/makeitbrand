@@ -239,29 +239,61 @@ No shell or git (Cowork, chat) → write the files into `makeitbrand-brand/` and
 finish the setup in Claude Code next to an upstream checkout.
 
 **Extract**: colours, type, logo, and the look — is there an art-directed ground (gradients,
-glow)? Iconography? How dense are their real social posts? From a URL read the rendered page and
-its CSS custom properties; from a PDF the palette, type and application pages.
+glow)? Iconography? How dense are their real social posts? Does the brand use illustration — spot
+art, a line/fill style, corner style, palette use, density, recurring motifs? From a URL read the
+rendered page's inline SVGs and illustrations along with its CSS custom properties; from a PDF the
+palette, type, application pages and any illustration on them. A brand with no illustration in its
+material gets `none: use icons and charts` — say so, don't invent a style.
 
 **Show before writing**, in one message: every resolved token (BRANDING.md §1), the chart palette
-with the validator's result, the draft voice and adaptation rules. Say plainly:
+with the validator's result, the draft voice and adaptation rules, and the draft `## Illustration`
+spec (BRANDING.md §4c, §5). Say plainly:
 
 - `--accent-fg` must contrast with `--accent`; `--good`/`--bad` must pass on `--surface`.
 - Fonts must be files the brand may embed. If only desktop-licensed, stop and ask.
 - Logos must be SVG with outlined text, one per variant (dark, light, mono).
 
-**Then write**, following `BRANDING.md`: `brand/<name>.css`, `brand/<name>.md`, `brand/assets/`
-(fonts, logo variants, icons), `brand/icons.css` if they have an iconset, `brand/default`, any
+**Then write**, following `BRANDING.md`: `brand/<name>.css`, `brand/<name>.md` — its `## Illustration`
+section (BRANDING.md §5) plus `--illo-1…4` tokens in the css, and 3–6 starter library SVGs in
+`brand/assets/illustrations/` drawn to that spec (token colours only) — `brand/assets/` (fonts,
+logo variants, icons), `brand/icons.css` if they have an iconset, `brand/default`, any
 `media/<id>.md` + `media/<id>.css` they need, and `SKILL.fork.md` — frontmatter with a
 `description:` that names the brand first and keeps the trigger phrases, then two to five lines of
 standing orders (the brand to use, never ask which). Leave `name:` out: the skill is then called
 `make-it-<brand>` after `brand/default` (`/make-it-acme`). Add `name:` only when the user wants
-another name.
+another name. A brand with no illustration style writes `## Illustration` as `none: use icons and
+charts` and skips the tokens and starter SVGs; Compose (§3) then never adds `figure.illo` unless
+the user explicitly asks, and an authored one then follows PRIMITIVES §6b with no brand palette to
+lean on.
 
 **Build and check.** `./build.sh` → `dist/<name>/`. Make a check sheet from `dist/<name>/` with
-three boards (a social-square, a chat-header, a slide-inset diagram), export it, and look at the
-PNGs: fonts, colours, logo. Fix the brand files, never the runtime. Commit the brand with
-`.makeitbrand-upstream` as one commit, ask before installing (`cp -R dist/<name>
-~/.claude/skills/<name>`), and mention that a generic `makeitbrand` install would compete with it.
+four boards (a social-square, a chat-header, a slide-inset diagram, and — unless the brand's
+Illustration spec is `none` — one board using `figure.illo` from the new library), export it, and
+look at the PNGs: fonts, colours, logo, and the illustration's style and palette. Fix the brand
+files, never the runtime. Commit the brand with `.makeitbrand-upstream` as one commit, ask before
+installing (`cp -R dist/<name> ~/.claude/skills/<name>`), and mention that a generic `makeitbrand`
+install would compete with it.
+
+---
+
+## 7b. Promote — saving an illustration to the brand
+
+Only when the user asks to keep or save an illustration ("save that one", "add it to the library")
+— never on your own, and only in a fork (`SKILL.fork.md` or `.makeitbrand-upstream` present; the
+same "Where it goes" rule as §7 — never upstream, never an installed skill folder):
+
+```bash
+python3 sheet.py work/sheet.html --promote-illo "<Board title>" --name <kebab-name>
+python3 sheet.py work/sheet.html --promote-illo "<Board title>" --name <kebab-name> --relink
+```
+
+It takes the authored `figure.illo` on that board, checks it against the same rules the runtime
+does (PRIMITIVES §6b), writes `brand/assets/illustrations/<name>.svg`, and appends the
+`--illo-<name>` token and the library entry to the brand's `.css`/`.md`. `--relink` also swaps the
+sheet's inline svg for `data-illo="<name>"`. Commit the result in the fork, then `./build.sh` and
+reinstall so the library entry is live. The library grows only from what the user approves; Compose
+(§3) always reaches for the library first, so a promoted illustration is available to every sheet
+from then on.
 
 ---
 

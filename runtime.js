@@ -150,7 +150,41 @@
     logo.appendChild(h("img", { src, alt: "", "data-gen": "" }));
   }
 
-  const iconCache = new Map();
+  // Icon and illustration fills resolve a css url() token and load it. In an inlined sheet (what
+  // sheet.py ships, and what export.py screenshots) that token is always a data: URI already, so
+  // decode it synchronously — a real fetch(), even of a data: URI, is a macrotask, and headless
+  // Chrome's --screenshot has no way to wait on one (export.py's own header comment). A dev-form
+  // sheet (a relative asset path) still needs a real fetch; track those so the ready signal below
+  // can wait for them, instead of racing a screenshot against a fetch that hasn't resolved.
+  const pendingAssetFetches = new Set();
+  function trackAsset(p) {
+    pendingAssetFetches.add(p);
+    p.finally(() => pendingAssetFetches.delete(p));
+    return p;
+  }
+  async function assetsIdle() {
+    for (let i = 0; i < 20 && pendingAssetFetches.size; i++) await Promise.all([...pendingAssetFetches]);
+  }
+  function decodeDataUri(url) {
+    const m = /^data:[^,]*?(;base64)?,([\s\S]*)$/.exec(url);
+    if (!m) return "";
+    try { return m[1] ? atob(m[2]) : decodeURIComponent(m[2]); } catch { return ""; }
+  }
+  // Runs `apply(src)` in the same tick when `url` is a data: URI (true for every inlined sheet —
+  // sheet.py always converts these tokens to data: URIs), so there is no promise/microtask lag
+  // between mountBoards() laying a board out and the icon/illustration content landing in it.
+  // Chrome's headless --screenshot has no hook to await a later microtask (export.py's header
+  // comment) and has been observed to rasterize a frame from just before such a late mutation even
+  // though a --dump-dom taken moments later shows the DOM already correct — so for the case that
+  // matters at export time (an inlined sheet), skip the promise entirely rather than resolve it
+  // fast. A dev-form sheet (a relative asset path) still needs a real, tracked fetch.
+  const remoteAssetCache = new Map();
+  function loadAsset(url, apply) {
+    if (url.startsWith("data:")) { apply(decodeDataUri(url)); return; }
+    if (!remoteAssetCache.has(url)) remoteAssetCache.set(url, trackAsset(fetch(url).then(r => r.text()).catch(() => "")));
+    remoteAssetCache.get(url).then(apply);
+  }
+
   function fillIcon(el) {
     const name = el.dataset.icon, token = `--icon-${name}`;
     const raw = cssVar(el, token);
@@ -159,8 +193,7 @@
     el.removeAttribute("data-invalid");
     const url = m[2].startsWith("data:") ? m[2] : new URL(m[2], baseFor(token, raw)).href;
     if (el.dataset.mibIcon === url && el.querySelector("svg")) return;
-    if (!iconCache.has(url)) iconCache.set(url, fetch(url).then(r => r.text()).catch(() => ""));
-    iconCache.get(url).then(src => {
+    loadAsset(url, src => {
       const doc = new DOMParser().parseFromString(src, "image/svg+xml").documentElement;
       if (!doc || doc.nodeName !== "svg") return invalid(el, `icon "${name}" is not an SVG`);
       doc.removeAttribute("width"); doc.removeAttribute("height");
@@ -176,7 +209,13 @@
    * inline <svg> child. Either way the result is checked for containment (always) and, unless
    * data-free, for brand-only colours (fill/stroke/stop-color) and a var(--stroke)-scaled stroke
    * width. data-free never relaxes the structural rules: viewBox, no text/image/foreignObject, no
-   * reference outside the board. */
+   * reference outside the board.
+   *
+   * COUPLING: sheet.py's `--promote-illo` runs this same rule set in Python (stdlib only, no DOM)
+   * before promoting an authored illustration into the brand library, so a promoted svg can never
+   * carry something the runtime would reject at render time. If you change ILLO_COLOR_TOKEN,
+   * ILLO_STROKE_W or illoSvgReason() here, change illo_svg_reason() and its two regexes in
+   * sheet.py to match, and vice versa. */
   const ILLO_COLOR_TOKEN = /^var\(\s*--(illo-[1-4]|chart-accent|accent|accent-2|fg|bg|muted|faint|surface)\s*(,[^)]*)?\)$/;
   const ILLO_STROKE_W = /^(var\(\s*--stroke\s*\)|calc\(\s*var\(\s*--stroke\s*\)\s*\*\s*[\d.]+\s*\))$/;
   function illoColorOk(v) {
@@ -207,7 +246,6 @@
     return null;
   }
 
-  const illoCache = new Map();
   function fillIllo(fig) {
     const free = fig.hasAttribute("data-free");
     const name = fig.dataset.illo;
@@ -227,8 +265,7 @@
     const url = m[2].startsWith("data:") ? m[2] : new URL(m[2], baseFor(token, raw)).href;
     const cacheKey = url + (free ? "|free" : "");
     if (fig.dataset.mibIllo === cacheKey && $(":scope > svg[data-gen]", fig)) return;
-    if (!illoCache.has(url)) illoCache.set(url, fetch(url).then(r => r.text()).catch(() => ""));
-    illoCache.get(url).then(src => {
+    loadAsset(url, src => {
       const doc = new DOMParser().parseFromString(src, "image/svg+xml").documentElement;
       $$(":scope > svg", fig).forEach(n => n.remove());
       if (!doc || doc.nodeName !== "svg") return invalid(fig, `illustration "${name}" is not an SVG`);
@@ -1857,9 +1894,10 @@
   if (print !== null) {
     document.documentElement.classList.add("mib-solo", "mib-print");
     mountBoards();
-    document.fonts.ready.then(() => {
+    document.fonts.ready.then(async () => {
       mountBoards();
       const n = printLayout(print.toLowerCase(), params.get("mib-boards"), params.get("mib-bleed") === "1");
+      await assetsIdle();
       requestAnimationFrame(() => document.documentElement.setAttribute("data-mib-ready", n ? `pages:${n}` : "missing"));
     });
   } else if (only !== null) {
@@ -1875,8 +1913,9 @@
       });
     };
     settle();
-    document.fonts.ready.then(() => {
+    document.fonts.ready.then(async () => {
       settle();
+      await assetsIdle();
       requestAnimationFrame(() => document.documentElement.setAttribute("data-mib-ready", boards[+only] ? "ok" : "missing"));
     });
   } else {
