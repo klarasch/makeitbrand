@@ -204,6 +204,10 @@ if fork:
         fm = [(gk, gl) for gk, gl in fm if gk != k]
         fm.append((k, lines))
     brand = fk_body.strip("\n")
+desc = " ".join(l for k, ls in fm if k == "description" for l in ls).split(":", 1)[-1].strip()
+if len(desc) > 1024:
+    sys.exit(f"build.sh: description is {len(desc)} characters; skill loaders reject more than 1024. "
+             "Shorten it" + (f" in {fork}" if fork else " in SKILL.md") + ".")
 fm = [(k, l) for k, l in fm if k != "name"]
 fm.insert(0, ("name", [f"name: {name}"]))
 
