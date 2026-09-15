@@ -239,6 +239,13 @@ A brand with no illustration style writes `## Illustration` as one line, `none: 
 charts`, skips `--illo-1`…`--illo-4` and the Library line, and Compose (SKILL.md §3) then never
 adds a `figure.illo` unless the user explicitly asks for one.
 
+**Surfaces** — optional, its own `## Surfaces` section: rules for pages (PAGES.md), which are built
+from `kit.py css` rather than boards. Same style as adaptation rules, each a checkable condition and
+an action: "Pages stay on the light ground; `.mb-hero` only on landing pages", "Internal tools carry
+no hero", "Tables use `--font-caption` headers, never uppercase". A brand without the section gets
+PAGES.md's defaults. The kit needs no new tokens: it derives page roles, the screen type scale and
+the dark scheme from the tokens above.
+
 **Adaptation** — how the brand degrades across media and grounds. Each rule names a condition and an
 action, and the condition is something the generator can check: a medium id, a board width, a ground,
 a primitive.

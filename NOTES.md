@@ -249,3 +249,17 @@ pages' grounds too — SKILL §5 said "change only what was asked" but nothing e
   generically and were left alone.
 - `sheet.py` now refuses to build (before any of the above) when the markup above the runtime marker
   has `<style`, `<script`, or a `style=` attribute — checked demo sheets still build clean.
+
+## Pages, brand guide and deck hand-off (2026-09-15)
+
+Asked: make the skill a general brand guideline, not only a sheet maker. A dashboard artifact had
+come out as a PDF bento and then off-brand when forced into HTML, because nothing outside the board
+contract carried the brand. Added the **page** mode (PAGES.md) with `kit.py`: `css` builds a
+self-contained kit (fonts and logos inlined, tokens, `--page-*` roles, screen type scale, dark scheme
+derived from the brand's own inverse ground, `mb-` components mirroring board primitives); `guide`
+renders a visual brand guide; `lint` fails on colour literals, foreign fonts and script hex;
+`shot` captures desktop, a 400 px iframe (headless Chrome won't lay out a window under ~500 px) and
+`data-theme="dark"`. SKILL.md routes board vs page (§1), decks to an installed slide skill (§1b),
+brand questions to guide. Checked on kestrel, halcyon and a private fork's brand: guides and a fork
+dashboard page lint clean and read as the brand in light, dark and at phone width. Forks must add
+page and guide triggers to their SKILL.fork.md `description:`, which replaces upstream's.

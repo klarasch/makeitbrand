@@ -221,7 +221,7 @@ import fnmatch, shutil, sys
 from pathlib import Path
 
 out = Path(sys.argv[1]); root = Path(".")
-CONTRACT_DOCS = {"PRIMITIVES.md", "MEDIA.md", "BRANDING.md", "CUSTOMIZING.md", "UPDATING.md"}
+CONTRACT_DOCS = {"PRIMITIVES.md", "MEDIA.md", "PAGES.md", "BRANDING.md", "CUSTOMIZING.md", "UPDATING.md"}
 NEVER = {"dist", "node_modules", "__pycache__", "SKILL.md", "SKILL.fork.md", "demo",
          "phase0"}                     # POC sandbox scratch dir, not part of the repo layout
 

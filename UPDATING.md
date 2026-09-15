@@ -15,9 +15,9 @@ touches. What follows is the mechanics, and the places a copy hides.
 
 ```
 runtime.js  runtime.css  runtime.min.js  runtime.min.css     replaced
-SKILL.md  PRIMITIVES.md  MEDIA.md  BRANDING.md                replaced
+SKILL.md  PRIMITIVES.md  MEDIA.md  PAGES.md  BRANDING.md      replaced
 CUSTOMIZING.md  UPDATING.md  build.sh  take-update.sh          replaced
-sheet.py  export.py                                            replaced
+sheet.py  export.py  kit.py                                    replaced
 tools/  demo/                                                  added to, never pruned
 ```
 

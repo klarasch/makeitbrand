@@ -56,8 +56,8 @@ say() { printf '%s\n' "$*"; }
 # runtime.min.* are not here: build.sh regenerates them, and a copy taken from upstream's working
 # folder would be whatever was last built there, not what the commit says.
 CORE=(runtime.js runtime.css
-      SKILL.md PRIMITIVES.md MEDIA.md BRANDING.md CUSTOMIZING.md UPDATING.md
-      build.sh take-update.sh sheet.py export.py)
+      SKILL.md PRIMITIVES.md MEDIA.md PAGES.md BRANDING.md CUSTOMIZING.md UPDATING.md
+      build.sh take-update.sh sheet.py export.py kit.py)
 
 # Additive: new and changed tools/demo files come in, nothing is ever
 # removed. A fork's own scripts alongside these are none of upstream's

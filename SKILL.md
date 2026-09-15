@@ -1,6 +1,6 @@
 ---
 name: makeitbrand
-description: Make on-brand visuals as one editable HTML sheet with PNG and PDF export — social posts (square, portrait, landscape), multi-page LinkedIn carousels as a PDF document post, infographics, Slack and Confluence headers, diagrams and charts for slides, KPI dashboards, print-ready nametags and other graphics from a CSV, or any custom size. Use whenever the user wants a graphic, visual, social post, carousel or document post, banner, header image, infographic, architecture diagram, chart image, dashboard image, badge or nametags "on brand", a printable PDF of them, or wants one message turned into several formats. Also use to revise a sheet this skill made (applying pasted "Copy changes" markup or data-note requests) and to train a brand from a website URL, brand guidelines PDF or logo. Not for slide decks, .pptx, or photo editing.
+description: The brand's guidelines and its maker. Make on-brand visuals as one editable HTML sheet with PNG and PDF export — social posts (square, portrait, landscape), multi-page LinkedIn carousels as a PDF document post, infographics, Slack and Confluence headers, diagrams and charts for slides, KPI dashboards, print-ready nametags and other graphics from a CSV, or any custom size — and build anything outside those templates on brand, such as dashboard artifacts, internal sites and tools, reports and documents, from the brand kit (fonts, colours, type scale, logo, icons, components). Use whenever the user wants a graphic, visual, social post, carousel, banner, header image, infographic, diagram, chart or dashboard, a branded artifact, web page, internal site or document "on brand", a printable PDF, one message in several formats, or asks what the brand's colours, fonts, logo rules or guidelines are. Also use to revise a sheet this skill made and to train a brand from a website URL, brand guidelines PDF or logo. For slide decks it hands off to a slide-deck skill when one is installed. Not for .pptx or photo editing.
 ---
 
 # makeitbrand
@@ -8,21 +8,26 @@ description: Make on-brand visuals as one editable HTML sheet with PNG and PDF e
 <!-- Upstream-owned: every update replaces this file whole (UPDATING.md). An install's own rules go
      in SKILL.fork.md (composed in above this line); a brand's rules in brand/<name>.md. -->
 
-A sheet is one HTML file of fixed-size boards, one board per image or per PDF page. The runtime,
-the medium profiles and the brand stylesheet are fixed assets; you write board markup and nothing
-else.
+This skill is the brand in two forms. A **sheet** is one HTML file of fixed-size boards, one board
+per image or per PDF page: the runtime, the medium profiles and the brand stylesheet are fixed
+assets, and you write board markup and nothing else. A **page** is anything without a template (a
+dashboard artifact, an internal site, a document): you write the layout, and the brand kit supplies
+every colour, font, size and component.
 
 ```
 runtime.js · runtime.css     sheet view, edit mode, export, charts, diagrams   ← never edit
-brand/<name>.css · .md       tokens, fonts, logo; voice and adaptation rules    ← never edit per sheet
+brand/<name>.css · .md       tokens, fonts, logo; voice, surfaces, adaptation   ← never edit per job
 sheet.py                     inliner + batch rows                               ← run it
 export.py                    headless PNG and PDF export                        ← run it
-PRIMITIVES.md · MEDIA.md     the markup contract and the media                  ← read them
+kit.py                       brand kit css, brand guide, page lint, page shots  ← run it
+PRIMITIVES.md · MEDIA.md     the markup contract and the media (sheets)         ← read them
+PAGES.md                     the brand beyond boards (pages, guide)             ← read it
 ```
 
-Read `PRIMITIVES.md` and `MEDIA.md` in this skill's folder before writing any markup, every time.
-They are the complete list of what exists. If a primitive is not in them, it does not exist: never
-solve a layout problem with a `<style>`, a `style=` or a class you made up.
+For a sheet, read `PRIMITIVES.md` and `MEDIA.md` in this skill's folder before writing any markup,
+every time. They are the complete list of what exists. If a primitive is not in them, it does not
+exist: never solve a layout problem with a `<style>`, a `style=` or a class you made up. For a page
+or a brand question, read `PAGES.md` instead.
 
 ---
 
@@ -30,13 +35,33 @@ solve a layout problem with a `<style>`, a `style=` or a class you made up.
 
 | mode | trigger |
 |---|---|
-| **make** | default: a new visual, or one message in several formats |
+| **make** | default: a new visual (an image, a post, a header, a slide graphic, a print piece), or one message in several formats |
+| **page** | an artifact, web page, internal site or tool, a report or document to read on screen, a dashboard "as an artifact", "interactive", "live" — anything without a fixed size. `PAGES.md` |
+| **guide** | a question about the brand itself: colours, fonts, logo use, "our brand guidelines", a cheat sheet. `PAGES.md` §7 |
+| **deck** | slides, a deck, a presentation: §1b |
 | **revise** | the user pastes board markup ("Copy changes"), sends back a sheet this skill made, or asks to change one ("apply my notes", "shorter headline on the square") |
 | **batch** | many boards from data: nametags, badges, a card per person or product, "from this CSV" |
 | **setup** | the user wants a brand trained: "set up our brand", a website URL, brand PDF or logo |
 | **update** | the user wants the latest makeitbrand in their fork |
 
 Pasted markup that starts with `<section class="board"` is always a revise.
+
+**Board or page.** Decide from the words, using the table in `PAGES.md` §1. The ambiguous one is a
+dashboard: an image for slides or chat is a `dashboard` board; a dashboard to open, share as a link,
+filter or publish as an artifact is a page. When it could be either, make the page if the user is in
+a surface that publishes artifacts, and say in the assumptions line which one you made. A request
+that names an artifact, a site or a page is never answered with a board, a PNG or a PDF.
+
+## 1b. Decks
+
+This skill does not make slides. Look at the skills available in this session for a slide-deck
+skill: its description mentions slides, decks or presentations (`slaydy`, a fork such as
+`acme-slaydy`, `slidecraft`, or one the fork's standing orders name). Prefer one whose name or
+description carries this install's brand; otherwise a generic one, and tell it the brand. When one
+exists, invoke it with the user's request and let it run; offer to make diagrams or charts for the
+deck as `slide-inset` boards afterwards. When none exists, say so in one line and offer what this
+skill can do instead: slide-inset graphics, or the brand guide so the deck can be styled by hand.
+Never build slides as a sheet or as a page.
 
 ---
 
@@ -154,6 +179,18 @@ there is one), and how to use it — it opens in a browser; E edits text (⌘B h
 updates everywhere); Export saves PNGs, or a PDF of each medium's boards; "Copy changes" copies the
 edited markup to paste back here for another round. Never mention the work folder, the runtime or
 internal paths.
+
+---
+
+## 3b. Page and guide
+
+Follow `PAGES.md` end to end: the kit (`kit.py css`) as the page's first `<style>`, the brand file's
+voice and `## Surfaces` rules, composition rules, then `kit.py lint` until it prints "on brand" and
+`kit.py shot` to look at desktop, phone and dark before handing over. The brief in §2 applies,
+except `media` and `deliver`: a page is delivered as an artifact where the surface publishes them,
+otherwise as one HTML file. Brand questions use `kit.py guide` (`PAGES.md` §7).
+
+Hand off in two lines: what you made and where it is, and which content is placeholder.
 
 ---
 
@@ -317,7 +354,10 @@ Needs a shell and git. Mechanics in `UPDATING.md`; order:
 ## 9. Hard rules
 
 - Never write CSS or JavaScript into a sheet. No `<style>`, `<script>` or `style=` above the marker.
-  `sheet.py` refuses to build a sheet that has one.
+  `sheet.py` refuses to build a sheet that has one. (Pages are the exception, bound by `PAGES.md`
+  and `kit.py lint` instead.)
+- Never style a page from memory or from a generic palette: the kit first, only tokens after it,
+  lint clean before handoff.
 - Never edit `runtime.*`, a brand file or a profile to make one sheet work. Missing primitive → say
   so; that is an upstream request, not a workaround.
 - Never invent a class, a data attribute value, an icon name, an illustration name, a medium id or

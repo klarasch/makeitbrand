@@ -11,10 +11,10 @@ yours lives in files an update never touches.**
 UPDATED (replace byte-for-byte, never edit)     YOURS (an update never touches these)
 ─────────────────────────────────────────       ─────────────────────────────────────
 runtime.js  runtime.css  runtime.min.*          SKILL.fork.md        your skill's name, description, standing orders
-SKILL.md · PRIMITIVES.md · MEDIA.md             brand/<name>.css     your brand: tokens + @font-face
+SKILL.md · PRIMITIVES.md · MEDIA.md · PAGES.md  brand/<name>.css     your brand: tokens + @font-face
 BRANDING.md · CUSTOMIZING.md · UPDATING.md      brand/<name>.md      your brand's voice AND its adaptation rules
 build.sh · take-update.sh                       brand/assets/        logo variants, fonts, imagery
-sheet.py · export.py                            brand/default        which brand to use without asking
+sheet.py · export.py · kit.py                   brand/default        which brand to use without asking
 tools/  (additive)                              media/<id>.md        your own medium profiles (prose)
 demo/   (additive)                              media/<id>.css       your own medium profiles (the CSS rule)
                                                  custom.css           bespoke, rasterization-safe CSS
@@ -80,7 +80,7 @@ What happens at build:
 
 **What ships is the repo minus the dev files.** Everything in the folder goes into
 `dist/<name>/` except `demo/` and its sheets, the repo docs (top-level `.md` other than the
-five contract docs), the `.sh` scripts, dot-files and dot-folders, `dist*/`, and whatever a
+six contract docs), the `.sh` scripts, dot-files and dot-folders, `dist*/`, and whatever a
 fork-owned `.skillignore` lists (gitignore-style, one pattern per line). So a brand layer ships
 whatever it is called — `brand/`, `media/`, `custom.css`, `custom.js` — and the build prints
 what it shipped so you can see a stray file before it leaves. Name anything non-standard in the
