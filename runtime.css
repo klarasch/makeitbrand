@@ -251,6 +251,11 @@ ol.list > li::before {
 figure.media { position: relative; overflow: hidden; border-radius: var(--r); background: var(--g-fill); min-height: 0; }
 figure.media > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 figure.media[data-crop="contain"] > img { object-fit: contain; }
+/* on screen only: a media figure takes a click, Enter or a dropped file. Scoped to .sheet, so an
+   exported board (which sits outside it) never shows the affordance. */
+.sheet figure.media[data-mib-media] { cursor: pointer; }
+.sheet figure.media[data-mib-media]:hover { box-shadow: inset 0 0 0 calc(2px * var(--kx, 1)) color-mix(in srgb, var(--c-focus) 55%, transparent); }
+.sheet figure.media[data-mib-media]:focus-visible, .sheet figure.media[data-drop] { outline: calc(3px * var(--kx, 1)) solid var(--c-focus); outline-offset: calc(-3px * var(--kx, 1)); }
 
 /* figure.illo sizes like figure.media: fills a card, or a board child with data-fill; a bare
    figure.illo in flow gets a modest default box, like an inline dots chart */

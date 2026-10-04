@@ -33,7 +33,7 @@
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
   /* derived attributes: written by the runtime, never by authors (PRIMITIVES.md §13) */
-  const STRIP_ATTRS = ["contenteditable", "spellcheck", "data-edited", "data-empty", "data-g", "data-ink", "data-va", "data-off", "data-num", "data-gen", "data-mib-scale", "data-mib-icon", "data-mib-illo"];
+  const STRIP_ATTRS = ["contenteditable", "spellcheck", "data-drop", "data-edited", "data-empty", "data-g", "data-ink", "data-va", "data-off", "data-num", "data-gen", "data-mib-scale", "data-mib-icon", "data-mib-illo", "data-mib-media"];
   const STYLE_OWNED = ".board, .node, .group, .note, .edge";
   const PROFILE_VARS = ["--safe-t", "--safe-r", "--safe-b", "--safe-l", "--k", "--floor", "--logo-h", "--ground-default", "--v-default", "--dpi"];
   const EDITABLE = [
@@ -104,10 +104,22 @@
       if (/^[\s€$£¥+\-−~≈]*[\d][\d.,\s]*\s*(%|k|m|bn|x|×|h|min|s)?$/i.test(td.textContent.trim())) td.setAttribute("data-num", "");
       else td.removeAttribute("data-num");
     });
-    $$("figure.media", b).forEach(m => m.toggleAttribute("data-empty", !m.querySelector("img")));
+    $$("figure.media", b).forEach(decorateMedia);
     for (const fn of Object.values(RENDER)) {
       try { fn(b); } catch (e) { console.error("[makeitbrand] renderer failed", e); }
     }
+  }
+
+  // figure.media is a drop target and a button: click, Enter or Space opens a file picker, dropping
+  // an image file fills or replaces it (see the media block under edit mode). The tabindex, role and
+  // label are derived (data-mib-media marks them) and cleanBoard strips them again.
+  function decorateMedia(m) {
+    m.toggleAttribute("data-empty", !m.querySelector("img"));
+    if (m.hasAttribute("data-mib-media") || m.hasAttribute("tabindex")) return;
+    m.setAttribute("data-mib-media", "");
+    m.setAttribute("tabindex", "0");
+    if (!m.hasAttribute("role")) m.setAttribute("role", "button");
+    if (!m.hasAttribute("aria-label")) m.setAttribute("aria-label", m.querySelector("img") ? "Replace image" : "Add image");
   }
 
   function logoVariant(logo, b) {
@@ -763,6 +775,87 @@
     el.normalize();
   }
 
+  /* ---------- media: click, Enter or drop an image on a figure.media */
+  const MEDIA_MAX = 2000;          // longest side, px, after downscaling
+  const MEDIA_KEEP = 600 * 1024;   // a raster this small and within MEDIA_MAX is stored as it came
+  let mediaInput = null, mediaTarget = null;
+
+  function readDataURL(file) {
+    return new Promise((ok, no) => {
+      const r = new FileReader();
+      r.onload = () => ok(r.result);
+      r.onerror = () => no(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+
+  // a data: URI for the file, downscaled and re-encoded through a canvas when it is large, so the
+  // saved sheet doesn't balloon. SVG and animated GIF are stored as they came.
+  async function imageDataURL(file) {
+    const raw = await readDataURL(file);
+    if (/^image\/(svg|gif)/.test(file.type)) return raw;
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("unreadable image")); i.src = raw; });
+    const k = Math.min(1, MEDIA_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    if (k === 1 && file.size <= MEDIA_KEEP) return raw;
+    const cv = h("canvas");
+    cv.width = Math.max(1, Math.round(img.naturalWidth * k));
+    cv.height = Math.max(1, Math.round(img.naturalHeight * k));
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    const out = file.type === "image/jpeg" ? cv.toDataURL("image/jpeg", 0.88) : cv.toDataURL("image/png");
+    return out.length < raw.length ? out : raw;
+  }
+
+  async function setMedia(m, file) {
+    if (!file || !file.type.startsWith("image/")) { toast("That isn't an image file"); return; }
+    let src;
+    try { src = await imageDataURL(file); }
+    catch (e) { toast("Couldn't read that image"); return; }
+    snapshotNow();
+    let img = m.querySelector("img");
+    if (!img) img = m.appendChild(h("img", { alt: "" }));   // an existing img keeps its alt
+    img.removeAttribute("srcset");
+    img.setAttribute("src", src);
+    m.removeAttribute("data-empty");
+    m.setAttribute("aria-label", "Replace image");
+    preEdit = null;
+    checkSoon();
+  }
+
+  function pickMedia(m) {
+    if (!mediaInput) {
+      mediaInput = h("input", { type: "file", accept: "image/*", "data-ui": "", hidden: "", tabindex: "-1" });
+      mediaInput.addEventListener("change", () => {
+        const f = mediaInput.files[0], t = mediaTarget;
+        mediaInput.value = ""; mediaTarget = null;
+        if (f && t) setMedia(t, f);
+      });
+      document.body.appendChild(mediaInput);
+    }
+    mediaTarget = m;
+    mediaInput.click();
+  }
+
+  const mediaOf = e => e.target.closest?.("figure.media[data-mib-media]");
+  sheet.addEventListener("click", e => { const m = mediaOf(e); if (m) pickMedia(m); });
+  sheet.addEventListener("keydown", e => {
+    const m = mediaOf(e);
+    if (m && e.target === m && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pickMedia(m); }
+  });
+  sheet.addEventListener("dragover", e => {
+    const m = mediaOf(e);
+    if (!m || ![...(e.dataTransfer?.types || [])].includes("Files")) return;
+    e.preventDefault();
+    m.setAttribute("data-drop", "");
+  });
+  sheet.addEventListener("dragleave", e => { mediaOf(e)?.removeAttribute("data-drop"); });
+  sheet.addEventListener("drop", e => {
+    const m = mediaOf(e);
+    if (!m) return;
+    e.preventDefault();
+    m.removeAttribute("data-drop");
+    setMedia(m, [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith("image/")) || e.dataTransfer?.files?.[0]);
+  });
+
   /* ---------- data-bind */
   function propagate(el) {
     const id = el.dataset.bind;
@@ -966,6 +1059,7 @@
     const c = b.cloneNode(true);
     $$("[data-gen], [data-ui]", c).forEach(n => n.remove());
     for (const n of [c, ...$$("*", c)]) {
+      if (n.hasAttribute("data-mib-media")) for (const a of ["tabindex", "role", "aria-label"]) n.removeAttribute(a);
       for (const a of STRIP_ATTRS) n.removeAttribute(a);
       if (n.matches(STYLE_OWNED)) n.removeAttribute("style");
     }

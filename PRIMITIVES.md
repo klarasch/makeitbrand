@@ -206,6 +206,17 @@ or `figure.illo` always fills the leftover height and needs no attribute.
 
 - Images are always `data:` URIs in a delivered sheet. Never invent a path; if the user hasn't
   supplied an image, leave it out and say so.
+- **Adding or replacing an image in the sheet.** Every `figure.media` is a drop target and a button
+  in the open sheet: click it, press Enter or Space on it (it is focusable), or drop an image file
+  on it. The runtime reads the file as a `data:` URI, creates the `<img>` (alt `""`) or replaces the
+  `src` of the one there (so an existing `alt` and the figure's `data-crop` stay), and clears
+  `data-empty`. Anything over 2000 px on its long side, or over about 600 KB, is downscaled and
+  re-encoded through a canvas (JPEG stays JPEG, the rest becomes PNG; SVG and GIF are kept as they
+  came). The change is undoable and is in the saved HTML, "Copy changes" and the PNG/PDF export. The
+  hover/focus/drop affordance is screen-only and never reaches an export or the saved markup.
+  Authors can therefore leave a `figure.media` with no `<img>` as a deliberate "fill me" slot (it
+  carries `data-empty`; a fork may style that placeholder). An empty one still exports as an empty
+  frame, so say in the hand-off which slots are waiting for an image.
 - `.logo` is an empty element; the runtime fills it from the brand's `--logo-*` tokens. `auto`
   (default) picks `dark` on `bg`/`surface` grounds, `light` on `inverse`, `mono` on `accent`, and on
   `transparent` follows `--inset-ground`. Its height is the profile's logo height, never below
@@ -520,7 +531,7 @@ Stripped by "Copy changes"; remove them if you see them anyway:
 
 - `data-gen` — on elements the runtime generated (edge and chart SVGs, logo images, legends,
   sparklines, inlined icon and illustration SVGs)
-- `data-empty`, `contenteditable`, `data-edited` — edit-mode state
+- `data-empty`, `data-drop`, `data-mib-media` (with the `tabindex`, `role` and `aria-label` it adds to a `figure.media`), `contenteditable`, `data-edited` — edit-mode and media-slot state
 - `data-g`, `data-ink`, `data-va`, `data-off` on boards, `data-num` on table cells, and inline `style` on
   boards — the runtime's resolved defaults and sizes
 - inline `style` on `.node`, `.group`, `.note` — the runtime's placement. After a drag the runtime
