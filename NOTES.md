@@ -205,6 +205,11 @@ Two kinds of PDF, two paths:
   Demo carousel: 5 pages, 166 KB. 12 nametags: 12 pages at 3.5 × 5 in, or `--paper a4|letter` with 4
   tags a sheet and cut marks (3 sheets). The page count is checked against a Python copy of the
   runtime's layout arithmetic.
+- **export.py --pdf --flat** (from a fork's request): the vector path is slow and blend-dependent on
+  scrim/gradient grounds (soft-masked tiles) and some viewers render it wrong, so --flat renders each
+  board through the PNG path and writes the PDF by hand (stdlib: own PNG decode, Flate RGB + SMask only
+  if any pixel is translucent). One page per board at true size. Demo carousel: 5 pages, 1.4 MB, about
+  15 s. Not combinable with --paper/--bleed.
 - Page size comes from a new profile property, `--dpi` (default 96; nametag 300). New `carousel`
   profile (1080 × 1350, safe areas for LinkedIn's document viewer, sequence rules, budget row),
   `demo/sheets/carousel.html`. SKILL.md: `deliver` in the brief, the print question, PDF steps in make

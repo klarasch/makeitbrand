@@ -182,7 +182,7 @@ when it isn't one PNG per board), **constraints**, **avoid**. Density budgets pe
 - **k** 2.5 · **floor** 36 px
 - **logo** required, 80 px
 - **delivery** a print PDF from `export.py --pdf`: `--paper a4` or `letter` for office printing
-  (four tags a sheet, cut marks), or one 3.5 × 5 in page per tag for a print shop or badge printer.
+  (four tags a sheet, cut marks; `--flat` instead for a viewer that mishandles the vector PDF), or one 3.5 × 5 in page per tag for a print shop or badge printer.
   `--bleed` runs the ground 1/8 in past the trim so a slightly off cut shows no paper edge: use it
   for a print shop, and for office sheets cut on a trimmer. Without it the page is the trim size
 - **constraints** a batch template: name, role, optionally a team line. Names are the only large

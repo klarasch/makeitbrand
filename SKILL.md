@@ -169,10 +169,11 @@ the PDF from the clean sheet:
 python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf                # one page per board
 python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf --paper a4     # office sheets, cut marks
 python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf --bleed        # print shop: 1/8 in bleed
+python3 <skill>/export.py "<Title>.html" -o <folder>/ --pdf --flat         # raster pages: carousels, gradient or scrim grounds
 ```
 
 It prints the boards as vector pages at their real size (a nametag is 3.5 × 5 in; 3.75 × 5.25 with
-bleed) and checks the page count. `--bleed` combines with `--paper`. Hand over the PDF with the sheet. The PNGs stay the visual check; don't reread the PDF.
+bleed) and checks the page count. `--bleed` combines with `--paper`. The vector PDF is slow and blend-dependent when a ground has a scrim or gradient (soft-masked tiles, Type 3 fonts) and some viewers draw it wrong: for carousels and any such ground use `--flat`, which puts each board's PNG on a true-size page (not selectable text; no `--paper`/`--bleed`). Hand over the PDF with the sheet. The PNGs stay the visual check; don't reread the PDF.
 
 **Hand off in three lines, no more:** what you made (boards and media), the file (and the PDF when
 there is one), and how to use it — it opens in a browser; E edits text (⌘B highlights, linked text

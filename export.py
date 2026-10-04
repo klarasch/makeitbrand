@@ -5,6 +5,7 @@
     python3 export.py sheet.html -o outdir/ --boards 1,3-5 --scale 2
     python3 export.py sheet.html -o outdir/ --pdf                 # one page per board
     python3 export.py sheet.html -o outdir/ --pdf --paper a4      # imposed on A4 with cut marks
+    python3 export.py sheet.html -o outdir/ --pdf --flat          # one raster page per board, safe everywhere
 
 ## PDF
 
@@ -17,6 +18,17 @@ paper keeps its own page. --bleed grows every board by 1/8 in on each side (the 
 full-width bands run into it, the content stays where it was relative to the trim): a trim-size
 page becomes the bleed size, and on paper the bleed boxes touch with the cut marks in the margin. The page count is checked against the same arithmetic the runtime uses
 (expected_pages), which also catches a print that fired before the layout was ready.
+
+The default vector PDF is slow and blend-dependent when a board's ground has a scrim or gradient:
+Chrome writes the blended layers as soft-masked image tiles (big, slow to open, and some viewers
+render the blend wrong), and the fonts it embeds are Type3. For carousels, for any gradient or
+scrim ground, and for viewers that mishandle the vector PDF, use --pdf --flat.
+
+--flat (implies --pdf) renders each board to PNG through the normal PNG path (--scale, default 2),
+then writes the PDF by hand, stdlib only: one page per board at the board's true size (px × 72 /
+`--dpi`), each page a single image, so every viewer shows what the PNG shows. Text is no longer
+selectable and the file is bigger than a flat-colour vector PDF, but never blend-dependent. Use
+--scale 3 for print-sharp pages. --paper and --bleed are vector-only and are refused with --flat.
 
 For each board (skipping any `data-template` board), this opens the sheet in headless Chrome at
 `?mib-board=<0-based index>` (runtime.js's solo-render mode: one board at true size, no chrome,
@@ -262,6 +274,125 @@ def export_pdf(chrome, base_url, jobs, paper, bleed, out_path, timeout):
     raise ExportError(f"{out_path.name}: {pages} pages, expected {expected} (the print layout was not ready)")
 
 
+def read_png(path):
+    """Decode an 8-bit non-interlaced PNG (what headless Chrome writes) to (w, h, rgb, alpha-or-None).
+    alpha is None when every pixel is opaque. Stdlib only."""
+    import zlib
+    data = Path(path).read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ExportError(f"{path}: not a PNG")
+    pos, idat, plte = 8, [], None
+    while pos < len(data):
+        n, typ = struct.unpack(">I4s", data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + n]
+        pos += 12 + n
+        if typ == b"IHDR":
+            w, h, depth, ctype, _, _, interlace = struct.unpack(">IIBBBBB", body)
+        elif typ == b"PLTE":
+            plte = body
+        elif typ == b"IDAT":
+            idat.append(body)
+    if depth != 8 or interlace or ctype not in (0, 2, 3, 4, 6):
+        raise ExportError(f"{path}: unsupported PNG (depth {depth}, type {ctype}, interlace {interlace})")
+    bpp = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[ctype]
+    stride = w * bpp
+    raw = zlib.decompress(b"".join(idat))
+    out = bytearray(h * stride)
+    prev = bytearray(stride)
+    for y in range(h):
+        f = raw[y * (stride + 1)]
+        row = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        if f == 1:
+            for i in range(bpp, stride):
+                row[i] = (row[i] + row[i - bpp]) & 255
+        elif f == 2:
+            for i in range(stride):
+                row[i] = (row[i] + prev[i]) & 255
+        elif f == 3:
+            for i in range(stride):
+                row[i] = (row[i] + (((row[i - bpp] if i >= bpp else 0) + prev[i]) >> 1)) & 255
+        elif f == 4:
+            for i in range(stride):
+                a = row[i - bpp] if i >= bpp else 0
+                b = prev[i]
+                c = prev[i - bpp] if i >= bpp else 0
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                row[i] = (row[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        elif f != 0:
+            raise ExportError(f"{path}: bad PNG filter {f}")
+        out[y * stride:(y + 1) * stride] = row
+        prev = row
+    alpha = None
+    if ctype == 6:
+        rgb = bytearray(w * h * 3)
+        for k in range(3):
+            rgb[k::3] = out[k::4]
+        alpha = bytes(out[3::4])
+    elif ctype == 4:
+        rgb = bytearray(w * h * 3)
+        for k in range(3):
+            rgb[k::3] = out[0::2]
+        alpha = bytes(out[1::2])
+    elif ctype == 0:
+        rgb = bytearray(w * h * 3)
+        for k in range(3):
+            rgb[k::3] = out
+    elif ctype == 3:
+        rgb = bytearray()
+        for v in out:
+            rgb += plte[v * 3:v * 3 + 3]
+    else:
+        rgb = out
+    if alpha is not None and alpha.count(255) == len(alpha):
+        alpha = None
+    return w, h, bytes(rgb), alpha
+
+
+def write_flat_pdf(pages, out_path):
+    """pages: [(png_path, w_pt, h_pt)] -> a PDF with one image page each, written by hand (stdlib).
+    The image is Flate-compressed RGB; transparent pixels go in an SMask, so a board with no ground
+    stays transparent rather than turning black."""
+    import zlib
+    objs = []  # index n-1 holds object n's bytes
+
+    def add(b):
+        objs.append(b)
+        return len(objs)
+
+    def stream(d, body):
+        return b"<< " + d.encode() + b" /Length %d >>\nstream\n" % len(body) + body + b"\nendstream"
+
+    add(b"")  # 1: catalog, filled in below
+    add(b"")  # 2: page tree
+    kids = []
+    for png, w_pt, h_pt in pages:
+        w, h, rgb, alpha = read_png(png)
+        smask = ""
+        if alpha is not None:
+            n = add(stream(f"/Type /XObject /Subtype /Image /Width {w} /Height {h} /ColorSpace /DeviceGray "
+                           f"/BitsPerComponent 8 /Filter /FlateDecode", zlib.compress(alpha, 6)))
+            smask = f" /SMask {n} 0 R"
+        img = add(stream(f"/Type /XObject /Subtype /Image /Width {w} /Height {h} /ColorSpace /DeviceRGB "
+                         f"/BitsPerComponent 8 /Filter /FlateDecode{smask}", zlib.compress(rgb, 6)))
+        content = add(stream("", f"q {w_pt:.3f} 0 0 {h_pt:.3f} 0 0 cm /Im0 Do Q".encode()))
+        kids.append(add(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w_pt:.3f} {h_pt:.3f}] "
+                        f"/Resources << /XObject << /Im0 {img} 0 R >> >> /Contents {content} 0 R >>".encode()))
+    objs[0] = b"<< /Type /Catalog /Pages 2 0 R >>"
+    objs[1] = f"<< /Type /Pages /Count {len(kids)} /Kids [{' '.join(f'{k} 0 R' for k in kids)}] >>".encode()
+    out = bytearray(b"%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+    offsets = []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    Path(out_path).write_bytes(bytes(out))
+
+
 def collect_css(doc, sheet_path):
     """Inline <style> blocks plus the text of any linked stylesheets (dev form), so board sizes
     can be read without ever rendering the page."""
@@ -445,6 +576,7 @@ def main():
     ap.add_argument("--pdf", action="store_true", help="write one vector PDF instead of PNGs")
     ap.add_argument("--paper", choices=sorted(PAPER), help="with --pdf: impose boards on this paper with cut marks")
     ap.add_argument("--bleed", action="store_true", help="with --pdf: extend each board's ground 1/8 in past the trim (print profiles)")
+    ap.add_argument("--flat", action="store_true", help="with --pdf: one raster page per board (PNG inside a PDF) instead of vector; the safe choice for gradient or scrim grounds, carousels, and viewers that mishandle the vector PDF, which is slow and blend-dependent there")
     ap.add_argument("--chrome", help="path to a Chrome/Chromium binary")
     ap.add_argument("--parallel", type=int, default=4, help="boards to export concurrently")
     ap.add_argument("--timeout", type=float, default=30, help="seconds to wait for each Chrome screenshot")
@@ -462,6 +594,10 @@ def main():
     css = collect_css(doc, sheet_path)
     sizes = parse_medium_sizes(css)
     dpis = parse_medium_dpis(css)
+    if args.flat:
+        args.pdf = True
+        if args.paper or args.bleed:
+            sys.exit("export.py: --flat writes one page per board at true size; --paper and --bleed need the vector PDF")
     if args.paper or args.bleed:
         args.pdf = True
 
@@ -497,7 +633,28 @@ def main():
     httpd, port = start_server()
     base_url = f"http://127.0.0.1:{port}{quote(str(sheet_path), safe='/')}"
     failures = []
-    if args.pdf:
+    if args.flat:
+        title = re.search(r"<title>(.*?)</title>", doc, re.S)
+        name = slug(html.unescape(title.group(1)) if title else sheet_path.stem)
+        out = outdir / f"{name}.pdf"
+        tmp = Path(tempfile.mkdtemp(prefix="mib-flat-"))
+        try:
+            for n, j in enumerate(jobs):
+                j["png"] = tmp / f"{n}.png"
+            with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
+                futs = [ex.submit(export_board, chrome, base_url, j["idx"], j["w"], j["h"], args.scale, j["png"], args.timeout)
+                        for j in jobs]
+                for f in futs:
+                    f.result()
+            write_flat_pdf([(j["png"], j["w_pt"], j["h_pt"]) for j in jobs], out)
+            print(f"{out}  {len(jobs)} {'page' if len(jobs) == 1 else 'pages'}  (flat, {fmt_scale(args.scale)}x PNG per page)")
+        except ExportError as e:
+            failures.append(str(e))
+            print(f"export.py: FAILED {out.name}: {e}", file=sys.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            httpd.shutdown()
+    elif args.pdf:
         title = re.search(r"<title>(.*?)</title>", doc, re.S)
         name = slug(html.unescape(title.group(1)) if title else sheet_path.stem)
         out = outdir / f"{name}{'-' + args.paper if args.paper else ''}{'-bleed' if args.bleed else ''}.pdf"
